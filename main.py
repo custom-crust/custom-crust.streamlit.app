@@ -69,7 +69,7 @@ try:
     ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date"])
     sales_sheet = get_worksheet("Sales", ["Event", "Type", "Revenue", "Date"])
     menu_sheet = get_worksheet("Menu", ["Item Name", "Description", "Price"])
-    vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "File ID", "Upload Date"])
+    vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Upload Date"])
 except Exception as e:
     st.error(f"📉 Sheet Connection Failed: {e}")
     st.stop()
@@ -166,28 +166,71 @@ elif menu_choice == "🍕 Menu Editor":
             menu_sheet.append_rows(edited_menu.values.tolist())
         st.success("Menu updated on website!")
 
-# 🗄️ VAULT (Direct to Drive)
+# 🗄️ VAULT (Link Logger Version)
 elif menu_choice == "🗄️ Document Vault":
     st.header("Secure Document Vault")
-    st.write("Uploads go directly to your Google Drive folder.")
+    st.info("ℹ️ Service Accounts cannot directly upload files on free plans. Please upload to Drive manually and log the link here.")
 
-    uploaded_file = st.file_uploader("Upload Permit, License, or Receipt")
-    doc_type = st.selectbox(
-        "Document Type", ["Health Permit", "Business License", "Tax Document", "Insurance", "Receipt"]
-    )
+    # Ensure the sheet header has a 'Link' column (allow user-driven migration/change)
+    try:
+        headers = vault_sheet.row_values(1)
+    except Exception:
+        headers = []
 
-    if st.button("Upload to Drive"):
-        if uploaded_file:
-            with st.spinner("Encrypting and Uploading..."):
+    if "Link" not in headers:
+        if "File ID" in headers:
+            st.warning("This Vault sheet still uses a 'File ID' column. You can migrate it to 'Link' for the Link Logger.")
+            if st.button("Migrate 'File ID' → 'Link'"):
                 try:
-                    file_metadata = {"name": f"[{doc_type}] {uploaded_file.name}", "parents": [VAULT_FOLDER_ID]}
-                    media = MediaIoBaseUpload(io.BytesIO(uploaded_file.getvalue()), mimetype=uploaded_file.type)
-                    file = drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
-                    vault_sheet.append_row(
-                        [uploaded_file.name, doc_type, file.get("id"), str(pd.Timestamp.now())]
-                    )
-                    st.success("✅ File uploaded successfully!")
+                    idx = headers.index("File ID") + 1  # gspread is 1-indexed for columns
+                    vault_sheet.update_cell(1, idx, "Link")
+                    st.success("Header updated to 'Link'. Please reload the app to reflect changes.")
                 except Exception as e:
-                    st.error(f"Upload failed: {e}")
+                    st.error(f"Migration failed: {e}")
         else:
-            st.warning("Please choose a file first.")
+            st.info("No 'Link' column found in the Vault sheet. You can add one.")
+            if st.button("Add 'Link' column"):
+                try:
+                    vault_sheet.update_cell(1, len(headers) + 1, "Link")
+                    st.success("Added 'Link' column. Please reload the app to reflect changes.")
+                except Exception as e:
+                    st.error(f"Failed to add column: {e}")
+
+    # 1. VIEW EXISTING DOCS
+    existing_data = vault_sheet.get_all_records()
+    vault_df = pd.DataFrame(existing_data)
+    
+    if not vault_df.empty:
+        cols_config = {}
+        # Check for 'Link' or 'File ID' depending on previous headers, strictly use 'Link' for new logic
+        if "Link" in vault_df.columns:
+            cols_config["Link"] = st.column_config.LinkColumn("Document Link")
+            
+        st.dataframe(
+            vault_df, 
+            column_config=cols_config,
+            use_container_width=True
+        )
+    else:
+        st.write("No documents logged yet.")
+st.divider()
+# 2. LOG NEW DOCUMENT
+st.subheader("Log New Document")
+with st.form("vault_form", clear_on_submit=True):
+    col1, col2 = st.columns(2)
+    doc_name = col1.text_input("Document Name (e.g. Health Permit)")
+    doc_type = col2.selectbox("Type", ["License", "Permit", "Receipt", "Tax Doc", "Contract", "Other"])
+    
+    doc_link = st.text_input("Paste Google Drive Link Here")
+    
+    if st.form_submit_button("Log to Vault"):
+        if doc_name and doc_link:
+            vault_sheet.append_row([
+                doc_name, 
+                doc_type, 
+                doc_link, 
+                str(pd.Timestamp.now())
+            ])
+            st.success(f"✅ Logged: {doc_name}")
+        else:
+            st.warning("Please enter a Name and a Link.")
