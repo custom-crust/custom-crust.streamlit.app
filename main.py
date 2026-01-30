@@ -85,34 +85,53 @@ st.sidebar.markdown("---")
 
 # --- 5. PAGE LOGIC ---
 
-# 📊 DASHBOARD
+# 📊 DASHBOARD (Upgraded)
 if menu_choice == "📊 Dashboard":
     st.header("Business Health Overview")
+    
+    # Load Data
     expenses = pd.DataFrame(ledger_sheet.get_all_records())
     sales = pd.DataFrame(sales_sheet.get_all_records())
-
+    
+    # Clean Data
     total_exp = 0.0
     total_rev = 0.0
-
+    
     if not expenses.empty:
-        expenses["Cost"] = pd.to_numeric(expenses["Cost"], errors="coerce").fillna(0)
-        total_exp = expenses["Cost"].sum()
-
+        expenses['Cost'] = pd.to_numeric(expenses['Cost'], errors='coerce').fillna(0)
+        total_exp = expenses['Cost'].sum()
+        
     if not sales.empty:
-        sales["Revenue"] = pd.to_numeric(sales["Revenue"], errors="coerce").fillna(0)
-        total_rev = sales["Revenue"].sum()
-
+        sales['Revenue'] = pd.to_numeric(sales['Revenue'], errors='coerce').fillna(0)
+        total_rev = sales['Revenue'].sum()
+    
+    # Top Metrics
     c1, c2, c3 = st.columns(3)
     c1.metric("Total Sales", f"${total_rev:,.2f}")
     c2.metric("Total Expenses", f"${total_exp:,.2f}")
-    c3.metric("Net Profit", f"${total_rev - total_exp:,.2f}")
-
+    net_color = "normal" if (total_rev - total_exp) >= 0 else "inverse"
+    c3.metric("Net Profit", f"${total_rev - total_exp:,.2f}", delta_color=net_color)
+    
     st.divider()
-    if not expenses.empty:
-        fig = px.pie(expenses, values="Cost", names="Category", title="Expense Breakdown", hole=0.4)
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.info("Log some expenses to see charts!")
+    
+    # Charts Area
+    col_charts1, col_charts2 = st.columns(2)
+    
+    with col_charts1:
+        st.subheader("💸 Expense Breakdown")
+        if not expenses.empty and total_exp > 0:
+            fig_exp = px.pie(expenses, values='Cost', names='Category', hole=0.4)
+            st.plotly_chart(fig_exp, use_container_width=True)
+        else:
+            st.info("Log expenses to see the breakdown.")
+            
+    with col_charts2:
+        st.subheader("💰 Revenue Sources")
+        if not sales.empty and total_rev > 0:
+            fig_rev = px.pie(sales, values='Revenue', names='Type', hole=0.4)
+            st.plotly_chart(fig_rev, use_container_width=True)
+        else:
+            st.info("Log sales to see the breakdown.")
 
 # 📝 LOG EXPENSES
 elif menu_choice == "📝 Log Expenses":
@@ -153,18 +172,38 @@ elif menu_choice == "💰 Sales & Revenue":
         else:
             st.info("No sales history found.")
 
-# 🍕 MENU
+# 🍕 MENU EDITOR (Fixed)
 elif menu_choice == "🍕 Menu Editor":
     st.header("Manage Pizza Menu")
-    menu_df = pd.DataFrame(menu_sheet.get_all_records())
-    edited_menu = st.data_editor(menu_df, num_rows="dynamic")
 
-    if st.button("Update Live Menu"):
-        menu_sheet.clear()
+    # 1. Load Data with Safety Check
+    try:
+        existing_data = menu_sheet.get_all_records()
+        menu_df = pd.DataFrame(existing_data)
+    except Exception:
+        # Auto-fix empty sheet
         menu_sheet.append_row(["Item Name", "Description", "Price"])
-        if not edited_menu.empty:
-            menu_sheet.append_rows(edited_menu.values.tolist())
-        st.success("Menu updated on website!")
+        menu_df = pd.DataFrame(columns=["Item Name", "Description", "Price"])
+        st.rerun()
+
+    # 2. Editable Table
+    edited_menu = st.data_editor(
+        menu_df, 
+        num_rows="dynamic",
+        use_container_width=True,
+        key="menu_editor"
+    )
+
+    # 3. Save Button
+    if st.button("Update Live Menu"):
+        with st.spinner("Saving changes..."):
+            menu_sheet.clear()
+            # Add headers back
+            menu_sheet.append_row(["Item Name", "Description", "Price"])
+            # Write the new data
+            if not edited_menu.empty:
+                menu_sheet.append_rows(edited_menu.values.tolist())
+            st.success("✅ Menu updated on website!")
 
 # 🗄️ VAULT (Clean & Robust)
 elif menu_choice == "🗄️ Document Vault":
