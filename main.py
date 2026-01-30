@@ -30,10 +30,7 @@ def get_drive_service():
         if raw is None:
             return None
         if isinstance(raw, str):
-            try:
-                info = json.loads(raw)
-            except json.JSONDecodeError:
-                return None
+            info = st.secrets["GCP_SERVICE_ACCOUNT"]
         else:
             info = raw
         # normalize private_key like above
