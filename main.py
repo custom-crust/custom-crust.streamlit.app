@@ -133,21 +133,36 @@ if menu_choice == "📊 Dashboard":
         else:
             st.info("Log sales to see the breakdown.")
 
-# 📝 LOG EXPENSES
+# 📝 LOG EXPENSES (Updated Categories)
 elif menu_choice == "📝 Log Expenses":
     st.header("Log New Expense")
     with st.form("expense_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         item = col1.text_input("Description")
         amount = col2.number_input("Cost ($)", min_value=0.01)
-        category = st.selectbox(
-            "Category", ["Inventory (Food)", "Equipment", "Labor", "Marketing", "Utilities", "Other"]
-        )
+        
+        # Expanded Categories for Mobile Pizzeria
+        category = st.selectbox("Category", [
+            "Inventory (Food & Drink)",
+            "Equipment & Supplies", 
+            "Vehicle & Fuel",             # Gas for trailer/truck
+            "POS & Technology",           # Toast subscription, Website
+            "Transaction Fees",           # Credit Card processing fees
+            "Legal & Admin Fees",         # LLC reg, Bank fees, Permits
+            "Insurance",
+            "Labor & Wages",
+            "Marketing & Ads",
+            "Event Fees & Rent",          # Cost to park at a venue
+            "Repairs & Maintenance",
+            "Utilities (Propane/Electric)",
+            "Other"
+        ])
+        
         date = st.date_input("Date")
-
+        
         if st.form_submit_button("Save Expense"):
             ledger_sheet.append_row([item, category, amount, str(date)])
-            st.success(f"Saved: ${amount} for {item}")
+            st.success(f"Saved: ${amount} for {item} ({category})")
 
 # 💰 SALES
 elif menu_choice == "💰 Sales & Revenue":
