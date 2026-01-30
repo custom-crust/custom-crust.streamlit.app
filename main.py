@@ -170,32 +170,7 @@ elif menu_choice == "🍕 Menu Editor":
 elif menu_choice == "🗄️ Document Vault":
     st.header("Secure Document Vault")
     st.info("ℹ️ Service Accounts cannot directly upload files on free plans. Please upload to Drive manually and log the link here.")
-
-    # Ensure the sheet header has a 'Link' column (allow user-driven migration/change)
-    try:
-        headers = vault_sheet.row_values(1)
-    except Exception:
-        headers = []
-
-    if "Link" not in headers:
-        if "File ID" in headers:
-            st.warning("This Vault sheet still uses a 'File ID' column. You can migrate it to 'Link' for the Link Logger.")
-            if st.button("Migrate 'File ID' → 'Link'"):
-                try:
-                    idx = headers.index("File ID") + 1  # gspread is 1-indexed for columns
-                    vault_sheet.update_cell(1, idx, "Link")
-                    st.success("Header updated to 'Link'. Please reload the app to reflect changes.")
-                except Exception as e:
-                    st.error(f"Migration failed: {e}")
-        else:
-            st.info("No 'Link' column found in the Vault sheet. You can add one.")
-            if st.button("Add 'Link' column"):
-                try:
-                    vault_sheet.update_cell(1, len(headers) + 1, "Link")
-                    st.success("Added 'Link' column. Please reload the app to reflect changes.")
-                except Exception as e:
-                    st.error(f"Failed to add column: {e}")
-
+    
     # 1. VIEW EXISTING DOCS
     existing_data = vault_sheet.get_all_records()
     vault_df = pd.DataFrame(existing_data)
