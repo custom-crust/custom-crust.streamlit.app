@@ -166,18 +166,22 @@ elif menu_choice == "🍕 Menu Editor":
             menu_sheet.append_rows(edited_menu.values.tolist())
         st.success("Menu updated on website!")
 
-# 🗄️ VAULT (Link Logger Version)
+# 🗄️ VAULT (Clean & Robust)
 elif menu_choice == "🗄️ Document Vault":
     st.header("Secure Document Vault")
-    st.info("ℹ️ Service Accounts cannot directly upload files on free plans. Please upload to Drive manually and log the link here.")
     
-    # 1. VIEW EXISTING DOCS
-    existing_data = vault_sheet.get_all_records()
-    vault_df = pd.DataFrame(existing_data)
-    
+    # 1. VIEW EXISTING DOCS (With Crash Protection)
+    try:
+        existing_data = vault_sheet.get_all_records()
+        vault_df = pd.DataFrame(existing_data)
+    except Exception:
+        # If the sheet is empty or headers are missing, auto-fix it
+        vault_sheet.append_row(["Document Name", "Type", "Link", "Date"])
+        vault_df = pd.DataFrame(columns=["Document Name", "Type", "Link", "Date"])
+        st.rerun()
+
     if not vault_df.empty:
         cols_config = {}
-        # Check for 'Link' or 'File ID' depending on previous headers, strictly use 'Link' for new logic
         if "Link" in vault_df.columns:
             cols_config["Link"] = st.column_config.LinkColumn("Document Link")
             
@@ -188,24 +192,24 @@ elif menu_choice == "🗄️ Document Vault":
         )
     else:
         st.write("No documents logged yet.")
-st.divider()
-# 2. LOG NEW DOCUMENT
-st.subheader("Log New Document")
-with st.form("vault_form", clear_on_submit=True):
-    col1, col2 = st.columns(2)
-    doc_name = col1.text_input("Document Name (e.g. Health Permit)")
-    doc_type = col2.selectbox("Type", ["License", "Permit", "Receipt", "Tax Doc", "Contract", "Other"])
-    
-    doc_link = st.text_input("Paste Google Drive Link Here")
-    
-    if st.form_submit_button("Log to Vault"):
-        if doc_name and doc_link:
-            vault_sheet.append_row([
-                doc_name, 
-                doc_type, 
-                doc_link, 
-                str(pd.Timestamp.now())
-            ])
-            st.success(f"✅ Logged: {doc_name}")
-        else:
-            st.warning("Please enter a Name and a Link.")
+    st.divider()
+    # 2. LOG NEW DOCUMENT
+    st.subheader("Log New Document")
+    with st.form("vault_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        doc_name = col1.text_input("Document Name (e.g. Health Permit)")
+        doc_type = col2.selectbox("Type", ["License", "Permit", "Receipt", "Tax Doc", "Contract", "Other"])
+        
+        doc_link = st.text_input("Paste Google Drive Link Here")
+        
+        if st.form_submit_button("Log to Vault"):
+            if doc_name and doc_link:
+                vault_sheet.append_row([
+                    doc_name, 
+                    doc_type, 
+                    doc_link, 
+                    str(pd.Timestamp.now())
+                ])
+                st.success(f"✅ Logged: {doc_name}")
+            else:
+                st.warning("Please enter a Name and a Link.")
