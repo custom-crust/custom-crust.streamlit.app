@@ -11,23 +11,40 @@ from googleapiclient.http import MediaIoBaseUpload
 # 1. SETUP GOOGLE CONNECTION
 def get_gspread_client():
     try:
-        # Pulls from Streamlit Cloud "Secrets"
-        info = json.loads(st.secrets["GCP_SERVICE_ACCOUNT"])
-        scope = [
-            'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/drive',
-        ]
+        # --- THE FIX: Direct assignment (No json.loads needed) ---
+        info = st.secrets["GCP_SERVICE_ACCOUNT"]
+        # ---------------------------------------------------------
+
+        scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
         creds = Credentials.from_service_account_info(info, scopes=scope)
         return gspread.authorize(creds)
     except Exception as e:
-        st.error("Secret Key Error: Check your Streamlit Cloud Advanced Settings.")
+        st.error(f"Connection Error: {e}")
         st.stop()
 
 # Drive service helper
 @st.cache_resource
 def get_drive_service():
     try:
-        info = json.loads(st.secrets["GCP_SERVICE_ACCOUNT"])
+        raw = st.secrets.get("GCP_SERVICE_ACCOUNT")
+        if raw is None:
+            return None
+        if isinstance(raw, str):
+            try:
+                info = json.loads(raw)
+            except json.JSONDecodeError:
+                return None
+        else:
+            info = raw
+        # normalize private_key like above
+        if isinstance(info, dict) and "private_key" in info and isinstance(info["private_key"], str):
+            pk = info["private_key"]
+            while "\\\\n" in pk:
+                pk = pk.replace("\\\\n", "\\n")
+            pk = pk.replace("\\n", "\n")
+            pk = pk.replace("\\r\\n", "\n").replace("\\r", "\n")
+            pk = pk.replace("\r\n", "\n").replace("\r", "\n")
+            info["private_key"] = pk.strip()
         creds = Credentials.from_service_account_info(
             info, scopes=['https://www.googleapis.com/auth/drive']
         )
