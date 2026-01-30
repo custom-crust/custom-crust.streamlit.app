@@ -3,167 +3,191 @@ import pandas as pd
 import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
-import json
-import io
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
+import io
 
-# 1. SETUP GOOGLE CONNECTION
-def get_gspread_client():
+# --- 1. CONFIGURATION ---
+st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
+
+# Hardcoded IDs (from provided links / configuration)
+SHEET_ID = "1yqbd35J140KWT7ui8Ggqn68_OfGXb1wofViJRcSgZBU"
+VAULT_FOLDER_ID = "15YYxQXXAk9zuJ6wpRUZbUg6Qsmmyjcd2"
+
+# --- 2. AUTHENTICATION (single helper) ---
+@st.cache_resource
+def get_manager():
     try:
-        # Pulls from Streamlit Cloud "Secrets"
-        info = json.loads(st.secrets["GCP_SERVICE_ACCOUNT"])
-        scope = [
-            'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/drive',
+        info = st.secrets["GCP_SERVICE_ACCOUNT"]
+        # Accept either a dict (Option B in Streamlit secrets) or a JSON string
+        if isinstance(info, str):
+            import json
+            try:
+                info = json.loads(info)
+            except Exception:
+                st.error("🔐 GCP_SERVICE_ACCOUNT secret is a string but not valid JSON. Please store the service account JSON or the parsed dictionary in Streamlit secrets.")
+                st.stop()
+
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
         ]
-        creds = Credentials.from_service_account_info(info, scopes=scope)
-        return gspread.authorize(creds)
+
+        # Normalize private_key newlines (handle escaped newlines safely)
+        if isinstance(info, dict) and "private_key" in info and isinstance(info["private_key"], str):
+            pk = info["private_key"]
+            pk = pk.replace("\\n", "\n").replace("\\r\\n", "\n").replace("\\r", "\n")
+            info["private_key"] = pk.strip()
+
+        try:
+            creds = Credentials.from_service_account_info(info, scopes=scopes)
+        except Exception as err:
+            st.error(f"🔐 Failed to create credentials: {err}. Check your service account secret shape.")
+            st.stop()
+
+        gs_client = gspread.authorize(creds)
+        drive_client = build("drive", "v3", credentials=creds)
+        return gs_client, drive_client
     except Exception as e:
-        st.error("Secret Key Error: Check your Streamlit Cloud Advanced Settings.")
+        st.error(f"🔐 Authentication Error: {e}")
         st.stop()
 
-# Drive service helper
-@st.cache_resource
-def get_drive_service():
-    try:
-        info = json.loads(st.secrets["GCP_SERVICE_ACCOUNT"])
-        creds = Credentials.from_service_account_info(
-            info, scopes=['https://www.googleapis.com/auth/drive']
-        )
-        return build("drive", "v3", credentials=creds)
-    except Exception as e:
-        st.error("Drive Connection Offline: Please check Secrets and Drive sharing.")
-        return None
+client, drive_service = get_manager()
 
-# Connect to your specific sheet
-client = get_gspread_client()
+# --- 3. CONNECT TO SHEETS ---
 try:
-    sheet = client.open("Custom Crust Kitchen - Master Ledger")
-    ledger_sheet = sheet.worksheet("Ledger")
-    menu_sheet = sheet.worksheet("Menu")
-    sales_sheet = sheet.worksheet("Sales")
-    vault_sheet = sheet.worksheet("Vault")
+    sheet = client.open_by_key(SHEET_ID)
+
+    def get_worksheet(name, headers):
+        try:
+            return sheet.worksheet(name)
+        except Exception:
+            ws = sheet.add_worksheet(title=name, rows="100", cols="10")
+            ws.append_row(headers)
+            return ws
+
+    ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date"])
+    sales_sheet = get_worksheet("Sales", ["Event", "Type", "Revenue", "Date"])
+    menu_sheet = get_worksheet("Menu", ["Item Name", "Description", "Price"])
+    vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "File ID", "Upload Date"])
 except Exception as e:
-    st.error(
-        f"Sheet Error: {e}. Ensure the Google Sheet is shared with your Service Account email."
-    )
+    st.error(f"📉 Sheet Connection Failed: {e}")
     st.stop()
 
-# 2. BRANDING
-st.set_page_config(page_title="Custom Crust Kitchen LLC", layout="wide", page_icon="🍕")
-st.title("🍕 Custom Crust Kitchen LLC: Command Center")
+# --- 4. SIDEBAR NAVIGATION ---
+st.sidebar.title("🍕 Custom Crust HQ")
+st.sidebar.markdown("---")
+menu_choice = st.sidebar.radio(
+    "Command Center",
+    ["📊 Dashboard", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"],
+)
+st.sidebar.markdown("---")
 
-# 3. NAVIGATION
-menu_choice = st.sidebar.radio("Go To:", ["Dashboard", "Log Expenses", "Sales & Catering", "Menu Management", "Vault"])
+# --- 5. PAGE LOGIC ---
 
-# 4. DASHBOARD
-if menu_choice == "Dashboard":
-    st.header("Financial Overview")
-    ledger_data = pd.DataFrame(ledger_sheet.get_all_records())
-    sales_data = pd.DataFrame(sales_sheet.get_all_records())
-    
+# 📊 DASHBOARD
+if menu_choice == "📊 Dashboard":
+    st.header("Business Health Overview")
+    expenses = pd.DataFrame(ledger_sheet.get_all_records())
+    sales = pd.DataFrame(sales_sheet.get_all_records())
+
+    total_exp = 0.0
+    total_rev = 0.0
+
+    if not expenses.empty:
+        expenses["Cost"] = pd.to_numeric(expenses["Cost"], errors="coerce").fillna(0)
+        total_exp = expenses["Cost"].sum()
+
+    if not sales.empty:
+        sales["Revenue"] = pd.to_numeric(sales["Revenue"], errors="coerce").fillna(0)
+        total_rev = sales["Revenue"].sum()
+
     c1, c2, c3 = st.columns(3)
-    total_exp = ledger_data["Cost"].sum() if not ledger_data.empty else 0
-    total_rev = sales_data["Revenue"].sum() if not sales_data.empty else 0
-    
-    c1.metric("Total Expenses", f"${total_exp:,.2f}")
-    c2.metric("Total Revenue", f"${total_rev:,.2f}")
-    c3.metric("Net Cash Flow", f"${total_rev - total_exp:,.2f}")
+    c1.metric("Total Sales", f"${total_rev:,.2f}")
+    c2.metric("Total Expenses", f"${total_exp:,.2f}")
+    c3.metric("Net Profit", f"${total_rev - total_exp:,.2f}")
 
     st.divider()
-    if not ledger_data.empty:
-        fig_pie = px.pie(ledger_data, values='Cost', names='Category', hole=0.5, title="Expense Distribution")
-        st.plotly_chart(fig_pie, use_container_width=True)
-
-# 5. LOG EXPENSES
-elif menu_choice == "Log Expenses":
-    st.header("Log Business Expenses")
-    with st.form("exp_form", clear_on_submit=True):
-        name = st.text_input("Item")
-        val = st.number_input("Cost ($)", min_value=0.0)
-        cat = st.selectbox("Category", ["Supplies", "Equipment", "Asset", "Maintenance", "Marketing", "Legal"])
-        dt = st.date_input("Date")
-        if st.form_submit_button("Log to Google"):
-            ledger_sheet.append_row([name, cat, val, str(dt)])
-            st.success("Saved!")
-
-# 6. SALES & CATERING
-if menu_choice == "Sales & Catering":
-    st.header("Revenue Tracking")
-    # Log New Sales
-    with st.form("sales_log", clear_on_submit=True):
-        evt = st.text_input("Event/Location Name")
-        rev_amt = st.number_input("Revenue ($)", min_value=0.0)
-        stype = st.selectbox("Type", ["Daily Sales", "Catering (Flat Rate)"])
-        sdate = st.date_input("Date")
-        if st.form_submit_button("Log Revenue to Google"):
-            sales_sheet.append_row([evt, stype, rev_amt, str(sdate)])
-            st.success(f"Logged ${rev_amt} for {evt}")
-    
-    st.divider()
-    st.subheader("Recent Sales History")
-    sales_data = pd.DataFrame(sales_sheet.get_all_records())
-    if not sales_data.empty:
-        st.dataframe(sales_data, use_container_width=True)
+    if not expenses.empty:
+        fig = px.pie(expenses, values="Cost", names="Category", title="Expense Breakdown", hole=0.4)
+        st.plotly_chart(fig, use_container_width=True)
     else:
-        st.info("No sales recorded yet. Use the form above to log your first sale!")
+        st.info("Log some expenses to see charts!")
 
-# 7. MENU MANAGEMENT
-elif menu_choice == "Menu Management":
-    st.header("Menu Editor")
-    menu_data = pd.DataFrame(menu_sheet.get_all_records())
-    edited_menu = st.data_editor(menu_data, num_rows="dynamic")
-    if st.button("Save Menu Changes"):
-        menu_sheet.update([edited_menu.columns.values.tolist()] + edited_menu.values.tolist())
-        st.success("Menu Updated!")
+# 📝 LOG EXPENSES
+elif menu_choice == "📝 Log Expenses":
+    st.header("Log New Expense")
+    with st.form("expense_form", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        item = col1.text_input("Description")
+        amount = col2.number_input("Cost ($)", min_value=0.01)
+        category = st.selectbox(
+            "Category", ["Inventory (Food)", "Equipment", "Labor", "Marketing", "Utilities", "Other"]
+        )
+        date = st.date_input("Date")
 
-# 8. THE VAULT
-elif menu_choice == "Vault":
-    st.header("The Vault")
-    st.write("Secure access to business documents.")
-    try:
-        vault_data = pd.DataFrame(vault_sheet.get_all_records())
+        if st.form_submit_button("Save Expense"):
+            ledger_sheet.append_row([item, category, amount, str(date)])
+            st.success(f"Saved: ${amount} for {item}")
 
-        # File uploader + Drive upload
-        uploaded_file = st.file_uploader("Choose a file to upload to Drive")
-        if uploaded_file is not None:
-            service = get_drive_service()
-            if service is None:
-                st.error("Drive service not available.")
-            else:
+# 💰 SALES
+elif menu_choice == "💰 Sales & Revenue":
+    st.header("Track Sales")
+    tab1, tab2 = st.tabs(["Log Sale", "View History"])
+
+    with tab1:
+        with st.form("sales_form", clear_on_submit=True):
+            event = st.text_input("Event Name / Location")
+            rev = st.number_input("Total Revenue ($)", min_value=0.01)
+            sType = st.selectbox("Type", ["Daily Service", "Catering Event", "Online Order"])
+            sDate = st.date_input("Date")
+
+            if st.form_submit_button("Log Revenue"):
+                sales_sheet.append_row([event, sType, rev, str(sDate)])
+                st.success(f"💰 Cha-ching! Logged ${rev}")
+
+    with tab2:
+        df_sales = pd.DataFrame(sales_sheet.get_all_records())
+        if not df_sales.empty:
+            st.dataframe(df_sales, use_container_width=True)
+        else:
+            st.info("No sales history found.")
+
+# 🍕 MENU
+elif menu_choice == "🍕 Menu Editor":
+    st.header("Manage Pizza Menu")
+    menu_df = pd.DataFrame(menu_sheet.get_all_records())
+    edited_menu = st.data_editor(menu_df, num_rows="dynamic")
+
+    if st.button("Update Live Menu"):
+        menu_sheet.clear()
+        menu_sheet.append_row(["Item Name", "Description", "Price"])
+        if not edited_menu.empty:
+            menu_sheet.append_rows(edited_menu.values.tolist())
+        st.success("Menu updated on website!")
+
+# 🗄️ VAULT (Direct to Drive)
+elif menu_choice == "🗄️ Document Vault":
+    st.header("Secure Document Vault")
+    st.write("Uploads go directly to your Google Drive folder.")
+
+    uploaded_file = st.file_uploader("Upload Permit, License, or Receipt")
+    doc_type = st.selectbox(
+        "Document Type", ["Health Permit", "Business License", "Tax Document", "Insurance", "Receipt"]
+    )
+
+    if st.button("Upload to Drive"):
+        if uploaded_file:
+            with st.spinner("Encrypting and Uploading..."):
                 try:
-                    file_bytes = uploaded_file.getvalue()
-                    mime = uploaded_file.type or "application/octet-stream"
-                    media = MediaIoBaseUpload(
-                        io.BytesIO(file_bytes), mimetype=mime, resumable=False
+                    file_metadata = {"name": f"[{doc_type}] {uploaded_file.name}", "parents": [VAULT_FOLDER_ID]}
+                    media = MediaIoBaseUpload(io.BytesIO(uploaded_file.getvalue()), mimetype=uploaded_file.type)
+                    file = drive_service.files().create(body=file_metadata, media_body=media, fields="id").execute()
+                    vault_sheet.append_row(
+                        [uploaded_file.name, doc_type, file.get("id"), str(pd.Timestamp.now())]
                     )
-                    metadata = {"name": uploaded_file.name}
-                    folder_id = st.secrets.get("DRIVE_FOLDER_ID")
-                    if folder_id:
-                        metadata["parents"] = [folder_id]
-                    f = (
-                        service.files()
-                        .create(body=metadata, media_body=media, fields="id,webViewLink")
-                        .execute()
-                    )
-                    file_id = f.get("id")
-                    view_link = f.get("webViewLink") or f"https://drive.google.com/file/d/{file_id}/view"
-                    # Append to the Vault sheet: [Document Name, Link]
-                    vault_sheet.append_row([uploaded_file.name, view_link])
-                    st.success("Upload complete ✅")
-                    st.markdown(f"[Open in Drive]({view_link})", unsafe_allow_html=True)
+                    st.success("✅ File uploaded successfully!")
                 except Exception as e:
                     st.error(f"Upload failed: {e}")
-
-        if not vault_data.empty:
-            # Render list of documents
-            for index, row in vault_data.iterrows():
-                name = row.get('Document Name') if 'Document Name' in row else None
-                link = row.get('Link') if 'Link' in row else None
-                if name and link:
-                    st.markdown(f"- [{name}]({link})")
         else:
-            st.warning("The Vault is empty. Add 'Document Name' and 'Link' to your Google Sheet.")
-    except Exception as e:
-        st.error(f"Error loading Vault: {e}")
+            st.warning("Please choose a file first.")
