@@ -53,6 +53,7 @@ sales_sheet = get_worksheet("Sales", ["Event", "Type", "Revenue", "Date"])
 assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Balance", "Last Updated"])
 debt_sheet = get_worksheet("Debt_Log", ["Loan Name", "Transaction Type", "Amount", "Date"])
 planner_sheet = get_worksheet("Planner", ["Event Name", "Date", "Projected Revenue", "Status"])
+vendor_sheet = get_worksheet("Vendors", ["Company Name", "Contact Person", "Phone", "Email", "Address", "Category"])
 menu_sheet = get_worksheet("Menu", ["Item Name", "Description", "Price", "Category"])
 ing_sheet = get_worksheet("Ingredients", ["Item Name", "Bulk Unit", "Bulk Cost", "Unit Cost"])
 vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Date"])
@@ -148,6 +149,7 @@ menu_choice = st.sidebar.radio("Navigation",
         "💰 Sales & Revenue", 
         "📝 Log Expenses", 
         "🏦 Assets & Debt", 
+        "🤝 Vendor Network",
         "🍕 Menu Editor",
         "🍳 Recipe Costing", 
         "🗄️ Document Vault"
@@ -415,6 +417,37 @@ elif menu_choice == "🏦 Assets & Debt":
             if not edited.empty: assets_sheet.append_rows(edited.values.tolist())
             st.success("Saved!")
             st.rerun()
+
+# 🤝 VENDOR NETWORK (NEW)
+elif menu_choice == "🤝 Vendor Network":
+    st.header("Vendor & Supplier Directory")
+    
+    # Input Form
+    with st.expander("➕ Add New Vendor"):
+        with st.form("vendor_form", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            comp_name = c1.text_input("Company Name")
+            contact = c2.text_input("Contact Person")
+            
+            c3, c4 = st.columns(2)
+            phone = c3.text_input("Phone Number")
+            email = c4.text_input("Email")
+            
+            address = st.text_area("Address / Notes")
+            category = st.selectbox("Category", ["Food Supplier", "Equipment", "Maintenance", "Marketing", "Other"])
+            
+            if st.form_submit_button("Save Vendor"):
+                vendor_sheet.append_row([comp_name, contact, phone, email, address, category])
+                st.success("Vendor Saved!")
+                st.rerun()
+
+    # Display Directory
+    st.subheader("📋 Vendor List")
+    df_vendors = get_df_robust(vendor_sheet)
+    if not df_vendors.empty:
+        st.dataframe(df_vendors, use_container_width=True)
+    else:
+        st.info("No vendors added yet.")
 
 # 🍕 MENU EDITOR
 elif menu_choice == "🍕 Menu Editor":
