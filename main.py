@@ -47,7 +47,7 @@ def get_worksheet(name, headers):
         ws.append_row(headers)
         return ws
 
-# Load Tabs (Added 'Planner')
+# Load Tabs
 ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date"])
 sales_sheet = get_worksheet("Sales", ["Event", "Type", "Revenue", "Date"])
 assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Balance", "Last Updated"])
@@ -58,7 +58,7 @@ menu_sheet = get_worksheet("Menu", ["Item Name", "Description", "Price", "Catego
 ing_sheet = get_worksheet("Ingredients", ["Item Name", "Bulk Unit", "Bulk Cost", "Unit Cost"])
 vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Date"])
 
-# --- 3. CUSTOM CSS (FINAL EXECUTIVE THEME) ---
+# --- 3. CUSTOM CSS ---
 st.markdown("""
 <style>
     /* Main Background */
@@ -138,7 +138,7 @@ def get_df_robust(sheet_obj):
         return pd.DataFrame(data[1:], columns=headers)
     except: return pd.DataFrame()
 
-# --- 5. SIDEBAR NAVIGATION ---
+# --- 5. SIDEBAR NAVIGATION (Updated) ---
 st.sidebar.markdown('<p class="sidebar-logo">🍕 CUSTOM CRUST<br>HQ 🍕</p>', unsafe_allow_html=True)
 st.sidebar.markdown("---")
 st.sidebar.markdown("**COMMAND CENTER**") 
@@ -225,7 +225,7 @@ if menu_choice == "📊 Dashboard":
             st.plotly_chart(fig, use_container_width=True)
         else: st.info("No expense data.")
 
-# 📅 PLANNER & PROJECTIONS (NEW)
+# 📅 PLANNER & PROJECTIONS
 elif menu_choice == "📅 Planner & Projections":
     st.header("Future Event Planner")
     
