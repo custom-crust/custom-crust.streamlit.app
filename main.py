@@ -161,64 +161,120 @@ menu_choice = st.sidebar.radio("Navigation",
     ["📊 Dashboard", "🏦 Assets & Debt", "🍳 Recipe Costing", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"], label_visibility="collapsed")
 st.sidebar.markdown("---")
 
+
 # --- 5. PAGE LOGIC ---
 
-# 📊 DASHBOARD (Upgraded with Net Worth)
+# 📊 DASHBOARD (Crash-Proof Logic)
+
+# 📊 DASHBOARD (Smart & Diagnostic)
+
+# 📊 DASHBOARD (X-RAY DIAGNOSTIC MODE)
+
+# 📊 DASHBOARD (The Bulldozer Fix)
+
+# 📊 DASHBOARD (Hard-Coded Fix)
 if menu_choice == "📊 Dashboard":
     st.header("Business Health Overview")
     
-    # Load Data
-    expenses = pd.DataFrame(ledger_sheet.get_all_records())
-    sales = pd.DataFrame(sales_sheet.get_all_records())
-    assets = pd.DataFrame(assets_sheet.get_all_records())
-    debts = pd.DataFrame(debt_sheet.get_all_records())
-    
-    # Calc Totals
-    total_exp = pd.to_numeric(expenses['Cost'], errors='coerce').sum() if not expenses.empty else 0
-    total_rev = pd.to_numeric(sales['Revenue'], errors='coerce').sum() if not sales.empty else 0
-    
-    # Asset Calc
-    total_assets = pd.to_numeric(assets['Balance'], errors='coerce').sum() if not assets.empty else 0
-    
-    # Debt Calc (Total Borrowed - Total Repaid)
-    total_debt = 0
-    if not debts.empty:
-        debts['Amount'] = pd.to_numeric(debts['Amount'], errors='coerce').fillna(0)
-        borrowed = debts[debts['Transaction Type'] == 'Borrow']['Amount'].sum()
-        repaid = debts[debts['Transaction Type'] == 'Repayment']['Amount'].sum()
-        total_debt = borrowed - repaid
-    # Top Metrics
+    # 1. Force Refresh Button (Clears Cache)
+    if st.button("🔄 Force Refresh Data"):
+        st.rerun()
+
+    # 2. Robust Data Loader
+    def load_data(sheet):
+        try:
+            data = sheet.get_all_values()
+            if len(data) < 2: return pd.DataFrame()
+            # Headers: Strip whitespace, Title Case (e.g. "cost " -> "Cost")
+            headers = [str(h).strip().title() for h in data[0]]
+            return pd.DataFrame(data[1:], columns=headers)
+        except:
+            return pd.DataFrame()
+
+    # 3. Currency Converter (Handles $32,000.00)
+    def to_usd(val):
+        if isinstance(val, str):
+            clean = val.replace('$', '').replace(',', '').strip()
+            if not clean: return 0.0
+            try: return float(clean)
+            except: return 0.0
+        return val
+
+    # 4. Load The Sheets
+    df_exp = load_data(ledger_sheet)
+    df_sales = load_data(sales_sheet)
+    df_assets = load_data(assets_sheet)
+    df_debt = load_data(debt_sheet)
+
+    # --- DIAGNOSTIC: Show Row Counts (So user knows it worked) ---
+    st.caption(f"✅ Data Loaded: Expenses ({len(df_exp)}), Sales ({len(df_sales)}), Assets ({len(df_assets)}), Debt ({len(df_debt)})")
+
+    # 5. Calculate Expenses (Target Column: 'Cost')
+    total_exp = 0.0
+    if not df_exp.empty and "Cost" in df_exp.columns:
+        df_exp["Clean_Cost"] = df_exp["Cost"].apply(to_usd)
+        total_exp = df_exp["Clean_Cost"].sum()
+
+    # 6. Calculate Sales (Target Column: 'Revenue')
+    total_rev = 0.0
+    if not df_sales.empty and "Revenue" in df_sales.columns:
+        df_sales["Clean_Rev"] = df_sales["Revenue"].apply(to_usd)
+        total_rev = df_sales["Clean_Rev"].sum()
+
+    # 7. Calculate Assets (Target Column: 'Balance')
+    total_assets = 0.0
+    if not df_assets.empty and "Balance" in df_assets.columns:
+        df_assets["Clean_Bal"] = df_assets["Balance"].apply(to_usd)
+        total_assets = df_assets["Clean_Bal"].sum()
+
+    # 8. Calculate Debt (Target Columns: 'Amount', 'Transaction Type')
+    total_debt = 0.0
+    if not df_debt.empty and "Amount" in df_debt.columns:
+        df_debt["Clean_Amt"] = df_debt["Amount"].apply(to_usd)
+        
+        # Check for Transaction Type (or Type)
+        type_col = "Transaction Type" if "Transaction Type" in df_debt.columns else "Type"
+        
+        if type_col in df_debt.columns:
+            # Normalize text to lowercase for matching
+            df_debt["Norm_Type"] = df_debt[type_col].astype(str).str.lower()
+            
+            borrowed = df_debt[df_debt["Norm_Type"].str.contains("borrow")]["Clean_Amt"].sum()
+            repaid = df_debt[df_debt["Norm_Type"].str.contains("repay")]["Clean_Amt"].sum()
+            total_debt = borrowed - repaid
+
+    # 9. Display Metrics
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Sales", f"${total_rev:,.0f}")
     c2.metric("Total Expenses", f"${total_exp:,.0f}")
-    c3.metric("Net Profit", f"${total_rev - total_exp:,.0f}")
-    c4.metric("Cash & Assets", f"${total_assets:,.0f}")
+    c3.metric("Net Profit", f"${total_rev - total_exp:,.0f}", delta=total_rev - total_exp)
+    # Net Worth Calculation
+    net_worth = total_assets - total_debt
+    c4.metric("Business Equity", f"${net_worth:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
+
     st.divider()
-    # Charts Area
-    col_charts1, col_charts2, col_charts3 = st.columns(3)
+    # 10. Charts
+    col_charts1, col_charts2 = st.columns(2)
     with col_charts1:
-        st.subheader("💸 Expenses")
-        if not expenses.empty and total_exp > 0:
-            fig_exp = px.pie(expenses, values='Cost', names='Category', hole=0.5)
-            fig_exp.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#E0E0E0", showlegend=False)
+        st.subheader("💸 Spending Breakdown")
+        if total_exp > 0 and "Category" in df_exp.columns:
+            fig_exp = px.pie(df_exp, values="Clean_Cost", names="Category", hole=0.4)
             st.plotly_chart(fig_exp, use_container_width=True)
+        else:
+            st.info("No expenses to chart.")
+
     with col_charts2:
-        st.subheader("💰 Revenue")
-        if not sales.empty and total_rev > 0:
-            fig_rev = px.pie(sales, values='Revenue', names='Type', hole=0.5)
-            fig_rev.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#E0E0E0", showlegend=False)
-            st.plotly_chart(fig_rev, use_container_width=True)
-    with col_charts3:
-        st.subheader("⚖️ Net Worth")
-        # Asset vs Debt Chart
-        ad_df = pd.DataFrame({
-            "Type": ["Assets (Cash/Credit)", "Total Debt"],
-            "Amount": [total_assets, total_debt]
-        })
+        st.subheader("⚖️ Assets vs Debt")
         if total_assets > 0 or total_debt > 0:
-            fig_net = px.pie(ad_df, values='Amount', names='Type', hole=0.5, color='Type', color_discrete_map={'Total Debt':'#FF4B4B', 'Assets (Cash/Credit)':'#00CC96'})
-            fig_net.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#E0E0E0", showlegend=False)
+            ad_data = pd.DataFrame({
+                "Type": ["Assets (Trailers/Ovens)", "Outstanding Debt"],
+                "Value": [total_assets, total_debt]
+            })
+            fig_net = px.bar(ad_data, x="Type", y="Value", color="Type", 
+                             color_discrete_map={"Outstanding Debt":"#FF4B4B", "Assets (Trailers/Ovens)":"#00CC96"})
             st.plotly_chart(fig_net, use_container_width=True)
+        else:
+            st.info("No assets or debt to chart.")
 
 # 🏦 ASSETS & DEBT MANAGER
 elif menu_choice == "🏦 Assets & Debt":
