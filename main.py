@@ -65,28 +65,29 @@ vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Da
 # --- 3. CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* 1. Main Background */
-    .stApp {
+    /* 1. Main Background & Sidebar Background (Unified Texture) */
+    .stApp, [data-testid="stSidebar"] {
         background-color: #0e0e0e;
         background-image: radial-gradient(#262626 1px, transparent 0);
         background-size: 20px 20px;
     }
     
-    /* 2. Sidebar */
+    /* 2. Sidebar Border */
     [data-testid="stSidebar"] {
-        background-color: #0e0e0e;
         border-right: 1px solid #333;
     }
 
-    /* 3. NEON LOGO STYLE */
+    /* 3. NEON LOGO (Stacked & Centered) */
     .sidebar-logo {
         font-family: 'Arial Black', sans-serif;
-        font-size: 26px !important;
+        font-size: 24px !important;
+        line-height: 1.2;
         text-transform: uppercase;
         color: #fff;
-        text-align: left;
-        margin-bottom: 20px;
-        text-shadow: 0 0 10px rgba(255, 75, 75, 0.8), 0 0 20px rgba(255, 75, 75, 0.4);
+        text-align: center;  /* Centered alignment */
+        margin-bottom: 25px;
+        margin-top: 10px;
+        text-shadow: 0 0 15px rgba(255, 75, 75, 0.6);
         letter-spacing: 1px;
     }
     
@@ -94,41 +95,54 @@ st.markdown("""
     [data-testid="stSidebar"] div[role="radiogroup"] {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 12px;
     }
     [data-testid="stSidebar"] label[data-baseweb="radio"] {
-        background: #161616;
+        background: rgba(22, 22, 22, 0.8); /* Semi-transparent to show dots */
+        backdrop-filter: blur(5px);
         border: 1px solid #333;
         border-radius: 8px;
         padding: 15px;
         margin-bottom: 0px !important;
         transition: all 0.2s ease;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        color: #888;
+        color: #aaa;
     }
     [data-testid="stSidebar"] label[data-baseweb="radio"]:hover {
         border-color: #FF4B4B;
         background: #1e1e1e;
         color: #fff;
-        transform: translateX(4px);
+        transform: scale(1.02); /* Subtle pop */
     }
 
     /* 5. DASHBOARD METRIC CARDS */
     [data-testid="stMetric"] {
-        background: #161616;
+        background: rgba(22, 22, 22, 0.8);
+        backdrop-filter: blur(5px);
         border: 1px solid #333;
         border-radius: 8px;
         padding: 20px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
     [data-testid="stMetric"]:hover { border-color: #FF4B4B; }
-    [data-testid="stMetricLabel"] { color: #888 !important; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    [data-testid="stMetricLabel"] { color: #888 !important; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
     [data-testid="stMetricValue"] { color: #fff !important; font-size: 26px; font-weight: 700; }
     
-    /* 6. General */
+    /* 6. General Text */
     h1, h2, h3 { color: #fff !important; }
     p, span, div { color: #ccc; }
     hr { border: 0; height: 1px; background: #333; margin: 20px 0; }
+    
+    /* 7. Center the 'Command Center' Label */
+    .st-emotion-cache-16idsys p {
+        text-align: center;
+        width: 100%;
+        color: #666 !important;
+        font-size: 10px;
+        letter-spacing: 2px;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -155,8 +169,8 @@ def get_df_robust(sheet_obj):
         return pd.DataFrame()
 
 # --- 5. SIDEBAR NAVIGATION ---
-# Custom Glowing Logo
-st.sidebar.markdown('<p class="sidebar-logo">🍕 CUSTOM CRUST HQ</p>', unsafe_allow_html=True)
+# Custom Glowing Logo (Stacked with <br>)
+st.sidebar.markdown('<p class="sidebar-logo">CUSTOM CRUST<br>HQ 🍕</p>', unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**COMMAND CENTER**") 
