@@ -10,6 +10,51 @@ import io
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
 
+# --- CUSTOM CSS (PREMIUM DASHBOARD STYLE) ---
+st.markdown("""
+<style>
+    /* 1. Main Background: Subtle Radial Gradient for depth */
+    .stApp {
+        background: radial-gradient(circle at top left, #1E1E1E, #0E1117);
+    }
+    
+    /* 2. Sidebar: Defined distinct look */
+    [data-testid="stSidebar"] {
+        background-color: #0E1117;
+        border-right: 1px solid #262730;
+    }
+    
+    /* 3. Metric Cards (The "Box" look from the screenshot) */
+    [data-testid="stMetric"] {
+        background-color: #262730;
+        padding: 15px 20px;
+        border-radius: 12px;
+        border: 1px solid #3B3D45;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s ease-in-out;
+    }
+    
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        border-color: #FF4B4B;
+    }
+    
+    /* 4. Input Fields & Dropdowns (Cleaner look) */
+    .stTextInput input, .stSelectbox div[data-baseweb="select"] {
+        background-color: #1E1E1E !important;
+        border: 1px solid #3B3D45;
+        border-radius: 8px;
+    }
+    
+    /* 5. Headers */
+    h1, h2, h3 {
+        font-family: 'Helvetica Neue', sans-serif;
+        font-weight: 600;
+        color: #E0E0E0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Hardcoded IDs (from provided links / configuration)
 SHEET_ID = "1yqbd35J140KWT7ui8Ggqn68_OfGXb1wofViJRcSgZBU"
 VAULT_FOLDER_ID = "15YYxQXXAk9zuJ6wpRUZbUg6Qsmmyjcd2"
