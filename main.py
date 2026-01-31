@@ -10,7 +10,7 @@ import io
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
 
-# --- CUSTOM CSS (FULL TEXTURE) ---
+# --- CUSTOM CSS (ROBUST TEXTURE) ---
 st.markdown("""
 <style>
     /* 1. Main Background: Dark Mesh/Leather Texture */
@@ -20,26 +20,32 @@ st.markdown("""
         background-size: 20px 20px;
     }
     
-    /* 2. Sidebar: Same Texture, Subtle Border */
+    /* 2. Sidebar: Robust 3px Border */
     [data-testid="stSidebar"] {
         background-color: #0e0e0e;
         background-image: radial-gradient(#262626 1px, transparent 0);
         background-size: 20px 20px;
-        border-right: 1px solid #333;
+        border-right: 3px solid #333; /* Thicker, structural border */
     }
-    /* 3. Metric Cards (Floating Effect) */
+    /* 3. Metric Cards: Thicker 2px Border */
     [data-testid="stMetric"] {
         background: linear-gradient(145deg, #1e1e1e, #141414);
         padding: 15px 20px;
         border-radius: 12px;
-        border: 1px solid #333;
+        border: 2px solid #444; /* Lighter & thicker to pop */
         box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
     }
-    /* 4. Remove default Plotly white/black backgrounds */
+    /* 4. Horizontal Dividers: Robust 3px Line */
+    hr {
+        border-top: 3px solid #333 !important;
+        margin-top: 30px;
+        margin-bottom: 30px;
+    }
+    /* 5. Remove default Plotly white/black backgrounds */
     .js-plotly-plot .plotly .main-svg {
         background-color: rgba(0,0,0,0) !important;
     }
-    /* 5. Custom Font Styling */ h1, h2, h3, p, div, span { color: #E0E0E0 !important; }
+    /* 6. Custom Font Styling */ h1, h2, h3, p, div, span { color: #E0E0E0 !important; }
 
 </style>
 """, unsafe_allow_html=True)
