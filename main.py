@@ -65,95 +65,62 @@ vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Da
 # --- 3. CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* 1. Main Background: Dark Mesh Texture */
+    /* Main Background */
     .stApp {
         background-color: #0e0e0e;
-        background-image: radial-gradient(#262626 1px, transparent 0);
-        background-size: 20px 20px;
+        background-image: radial-gradient(#333 1px, transparent 0);
+        background-size: 24px 24px;
     }
     
-    /* 2. Sidebar: Matching Texture + Right Border */
+    /* Sidebar */
     [data-testid="stSidebar"] {
         background-color: #0e0e0e;
-        background-image: radial-gradient(#262626 1px, transparent 0);
-        background-size: 20px 20px;
-        border-right: 2px solid #333;
-        padding-top: 20px;
-    }
-    
-    /* 3. Sidebar Navigation "Cards" */
-    [data-testid="stSidebar"] div[role="radiogroup"] {
-        display: flex;
-        flex-direction: column;
-        gap: 8px; /* Gap between buttons */
-    }
-    
-    [data-testid="stSidebar"] label[data-baseweb="radio"] {
-        background: linear-gradient(145deg, #1e1e1e, #141414); /* Gradient Card */
-        border: 1px solid #333;       /* Subtle Border */
-        border-radius: 10px;          /* Rounded Corners */
-        padding: 12px 15px;           /* Inner Spacing */
-        width: 100%;
-        margin-bottom: 0px !important;
-        transition: all 0.2s ease-in-out;
-        box-shadow: 2px 2px 5px rgba(0,0,0,0.3); /* Drop Shadow */
-    }
-    
-    /* Hover Effect: Slide Right & Red Border */
-    [data-testid="stSidebar"] label[data-baseweb="radio"]:hover {
-        border-color: #FF4B4B;        
-        transform: translateX(5px);   
-        box-shadow: 4px 4px 8px rgba(0,0,0,0.5);
+        border-right: 1px solid #333;
     }
 
-    /* 4. Dashboard Metric Cards (The Boxes at the Top) */
+    /* Metric Cards (Glassmorphism) */
     [data-testid="stMetric"] {
-        background-color: #161616;
-        border: 1px solid #333;
-        padding: 20px;
+        background: rgba(30, 30, 30, 0.5); /* Semi-transparent */
+        backdrop-filter: blur(10px);
+        border: 1px solid #444;
         border-radius: 12px;
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
+        padding: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        transition: transform 0.2s;
     }
-    
-    /* Metric Label (Small Text) */
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        border-color: #FF4B4B;
+    }
     [data-testid="stMetricLabel"] {
-        color: #888 !important;
-        font-size: 14px;
+        font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 1px;
+        color: #aaa !important;
     }
-    
-    /* Metric Value (Big Number) */
     [data-testid="stMetricValue"] {
-        font-family: 'Roboto', sans-serif;
+        font-size: 24px;
         font-weight: 700;
-        color: #E0E0E0 !important;
+        color: #fff !important;
     }
 
-    /* 5. Thicker Dividers */
-    hr {
-        border: 0;
-        height: 3px; /* Thicker line */
-        background: #333;
-        margin-top: 30px;
-        margin-bottom: 30px;
-        border-radius: 2px;
-    }
-
-    /* 6. General Text & Headers */
-    h1, h2, h3, p, div, span {
-        color: #E0E0E0 !important;
+    /* Charts Container */
+    .chart-container {
+        background: #161616;
+        padding: 20px;
+        border-radius: 15px;
+        border: 1px solid #333;
+        margin-bottom: 20px;
     }
     
-    /* 7. 'Command Center' Label Styling */
-    .st-emotion-cache-16idsys p {
-        font-size: 11px;
-        text-transform: uppercase;
-        color: #666 !important;
-        letter-spacing: 2px;
-        font-weight: 700;
-        margin-left: 5px;
-        margin-bottom: 10px;
+    /* Text */
+    h1, h2, h3 { color: #fff !important; font-family: 'Helvetica Neue', sans-serif; }
+    p, span { color: #ccc !important; }
+    
+    /* Tables */
+    [data-testid="stDataFrame"] {
+        border: 1px solid #333;
+        border-radius: 10px;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -189,69 +156,130 @@ st.sidebar.markdown("---")
 
 # --- 6. PAGE LOGIC ---
 
-# 📊 DASHBOARD
+
+# 📊 DASHBOARD (Executive Layout)
 if menu_choice == "📊 Dashboard":
-    st.header("Business Health Overview")
-    # Load Data
+    st.title("🚀 Business Command Center")
+    st.markdown("###") # Spacer
+    
+    # 1. LOAD DATA
     df_exp = get_df_robust(ledger_sheet)
     df_sales = get_df_robust(sales_sheet)
     df_assets = get_df_robust(assets_sheet)
     df_debt = get_df_robust(debt_sheet)
-    # Calculate Expenses
+
+    # 2. CALCULATE METRICS
+    # Expenses
     total_exp = 0.0
     if not df_exp.empty and "Cost" in df_exp.columns:
         df_exp["Clean_Cost"] = df_exp["Cost"].apply(clean_money)
         total_exp = df_exp["Clean_Cost"].sum()
-    # Calculate Sales
+
+    # Sales
     total_rev = 0.0
     if not df_sales.empty and "Revenue" in df_sales.columns:
         df_sales["Clean_Rev"] = df_sales["Revenue"].apply(clean_money)
         total_rev = df_sales["Clean_Rev"].sum()
-    # Calculate Assets
+
+    # Assets
     total_assets = 0.0
     if not df_assets.empty and "Balance" in df_assets.columns:
         df_assets["Clean_Bal"] = df_assets["Balance"].apply(clean_money)
         total_assets = df_assets["Clean_Bal"].sum()
-    # Calculate Debt (Fuzzy Match Borrow/Repay)
+
+    # Debt
     total_debt = 0.0
     if not df_debt.empty and "Amount" in df_debt.columns:
         df_debt["Clean_Amt"] = df_debt["Amount"].apply(clean_money)
-        # Find Type Column
         type_col = next((c for c in df_debt.columns if "Type" in c), None)
         if type_col:
             df_debt["Norm_Type"] = df_debt[type_col].astype(str).str.lower()
             borrowed = df_debt[df_debt["Norm_Type"].str.contains("borrow")]["Clean_Amt"].sum()
             repaid = df_debt[df_debt["Norm_Type"].str.contains("repay")]["Clean_Amt"].sum()
             total_debt = borrowed - repaid
-    # Metrics
+
+    # 3. DISPLAY KEY METRICS (Top Row)
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Sales", f"${total_rev:,.0f}")
-    c2.metric("Total Expenses", f"${total_exp:,.0f}")
-    c3.metric("Net Profit", f"${total_rev - total_exp:,.0f}", delta=total_rev - total_exp)
+    c1.metric("💰 Total Revenue", f"${total_rev:,.0f}")
+    c2.metric("💸 Total Expenses", f"${total_exp:,.0f}")
+    
+    net_profit = total_rev - total_exp
+    c3.metric("📈 Net Profit", f"${net_profit:,.0f}", delta=net_profit)
+    
     net_worth = total_assets - total_debt
-    c4.metric("Business Equity", f"${net_worth:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
-    st.divider()
-    # Charts
-    col_charts1, col_charts2 = st.columns(2)
-    with col_charts1:
-        st.subheader("💸 Spending Breakdown")
+    c4.metric("🏛️ Business Equity", f"${net_worth:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
+
+    st.markdown("---")
+
+    # 4. OPERATIONS ZONE (Pie Charts)
+    st.subheader("📊 Operational Performance")
+    col_op1, col_op2 = st.columns(2)
+    
+    # Chart 1: Revenue Breakdown (Sales by Type)
+    with col_op1:
+        st.caption("Where is the money coming from?")
+        if total_rev > 0 and "Type" in df_sales.columns:
+            # Aggregate by Type to avoid messy charts
+            sales_by_type = df_sales.groupby("Type")["Clean_Rev"].sum().reset_index()
+            fig_sales = px.pie(sales_by_type, values="Clean_Rev", names="Type", 
+                               color_discrete_sequence=px.colors.qualitative.Pastel,
+                               hole=0.5)
+            fig_sales.update_layout(showlegend=True, margin=dict(t=0, b=0, l=0, r=0), 
+                                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                    font=dict(color="white"))
+            st.plotly_chart(fig_sales, use_container_width=True)
+        else:
+            st.info("No sales data yet.")
+
+    # Chart 2: Expense Breakdown (Spending by Category)
+    with col_op2:
+        st.caption("Where is the money going?")
         if total_exp > 0 and "Category" in df_exp.columns:
-            fig_exp = px.pie(df_exp, values="Clean_Cost", names="Category", hole=0.4)
+            # Aggregate by Category
+            exp_by_cat = df_exp.groupby("Category")["Clean_Cost"].sum().reset_index()
+            fig_exp = px.pie(exp_by_cat, values="Clean_Cost", names="Category", 
+                             color_discrete_sequence=px.colors.qualitative.Vivid,
+                             hole=0.5)
+            fig_exp.update_layout(showlegend=True, margin=dict(t=0, b=0, l=0, r=0),
+                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                  font=dict(color="white"))
             st.plotly_chart(fig_exp, use_container_width=True)
         else:
-            st.info("No expenses logged.")
-    with col_charts2:
-        st.subheader("⚖️ Assets vs Debt")
+            st.info("No expense data yet.")
+
+    st.markdown("---")
+
+    # 5. FINANCIAL HEALTH & RECENT ACTIVITY
+    st.subheader("⚖️ Financial Position")
+    col_fin1, col_fin2 = st.columns([1, 1])
+
+    # Chart 3: Assets vs Debt
+    with col_fin1:
+        st.caption("Balance Sheet Snapshot")
         if total_assets > 0 or total_debt > 0:
             ad_data = pd.DataFrame({
-                "Type": ["Assets (Trailers/Ovens)", "Outstanding Debt"],
-                "Value": [total_assets, total_debt]
+                "Category": ["Assets", "Liabilities"],
+                "Amount": [total_assets, total_debt],
+                "Color": ["#00CC96", "#FF4B4B"]
             })
-            fig_net = px.bar(ad_data, x="Type", y="Value", color="Type", 
-                             color_discrete_map={"Outstanding Debt":"#FF4B4B", "Assets (Trailers/Ovens)":"#00CC96"})
-            st.plotly_chart(fig_net, use_container_width=True)
+            fig_bal = px.bar(ad_data, x="Category", y="Amount", color="Category", 
+                             color_discrete_map={"Assets": "#00CC96", "Liabilities": "#FF4B4B"},
+                             text_auto='.2s')
+            fig_bal.update_layout(showlegend=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                  font=dict(color="white"), margin=dict(t=10, b=10, l=0, r=0))
+            st.plotly_chart(fig_bal, use_container_width=True)
         else:
-            st.info("No assets or debt logged.")
+            st.info("No assets/debt logged.")
+
+    # Table: Recent Transactions (At a Glance)
+    with col_fin2:
+        st.caption("Recent Expenses (Last 5)")
+        if not df_exp.empty:
+            # Show last 5 rows, minimal columns
+            recent_exp = df_exp.tail(5)[["Item", "Cost", "Date"]]
+            st.dataframe(recent_exp, hide_index=True, use_container_width=True)
+        else:
+            st.info("No recent activity.")
 
 # 🏦 ASSETS & DEBT MANAGER
 elif menu_choice == "🏦 Assets & Debt":
