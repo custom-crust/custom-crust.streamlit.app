@@ -63,7 +63,100 @@ menu_sheet = get_worksheet("Menu", ["Item Name", "Description", "Price", "Catego
 vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Date"])
 
 # --- 3. CUSTOM CSS ---
-st.markdown("""""", unsafe_allow_html=True)
+st.markdown("""
+<style>
+    /* 1. Main Background: Dark Mesh Texture */
+    .stApp {
+        background-color: #0e0e0e;
+        background-image: radial-gradient(#262626 1px, transparent 0);
+        background-size: 20px 20px;
+    }
+    
+    /* 2. Sidebar: Matching Texture + Right Border */
+    [data-testid="stSidebar"] {
+        background-color: #0e0e0e;
+        background-image: radial-gradient(#262626 1px, transparent 0);
+        background-size: 20px 20px;
+        border-right: 2px solid #333;
+        padding-top: 20px;
+    }
+    
+    /* 3. Sidebar Navigation "Cards" */
+    [data-testid="stSidebar"] div[role="radiogroup"] {
+        display: flex;
+        flex-direction: column;
+        gap: 8px; /* Gap between buttons */
+    }
+    
+    [data-testid="stSidebar"] label[data-baseweb="radio"] {
+        background: linear-gradient(145deg, #1e1e1e, #141414); /* Gradient Card */
+        border: 1px solid #333;       /* Subtle Border */
+        border-radius: 10px;          /* Rounded Corners */
+        padding: 12px 15px;           /* Inner Spacing */
+        width: 100%;
+        margin-bottom: 0px !important;
+        transition: all 0.2s ease-in-out;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.3); /* Drop Shadow */
+    }
+    
+    /* Hover Effect: Slide Right & Red Border */
+    [data-testid="stSidebar"] label[data-baseweb="radio"]:hover {
+        border-color: #FF4B4B;        
+        transform: translateX(5px);   
+        box-shadow: 4px 4px 8px rgba(0,0,0,0.5);
+    }
+
+    /* 4. Dashboard Metric Cards (The Boxes at the Top) */
+    [data-testid="stMetric"] {
+        background-color: #161616;
+        border: 1px solid #333;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.4);
+    }
+    
+    /* Metric Label (Small Text) */
+    [data-testid="stMetricLabel"] {
+        color: #888 !important;
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    
+    /* Metric Value (Big Number) */
+    [data-testid="stMetricValue"] {
+        font-family: 'Roboto', sans-serif;
+        font-weight: 700;
+        color: #E0E0E0 !important;
+    }
+
+    /* 5. Thicker Dividers */
+    hr {
+        border: 0;
+        height: 3px; /* Thicker line */
+        background: #333;
+        margin-top: 30px;
+        margin-bottom: 30px;
+        border-radius: 2px;
+    }
+
+    /* 6. General Text & Headers */
+    h1, h2, h3, p, div, span {
+        color: #E0E0E0 !important;
+    }
+    
+    /* 7. 'Command Center' Label Styling */
+    .st-emotion-cache-16idsys p {
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #666 !important;
+        letter-spacing: 2px;
+        font-weight: 700;
+        margin-left: 5px;
+        margin-bottom: 10px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # --- 4. GLOBAL HELPER FUNCTIONS ---
 def clean_money(val):
