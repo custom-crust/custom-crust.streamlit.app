@@ -27,6 +27,19 @@ st.markdown("""
         background-size: 20px 20px;
         border-right: 3px solid #333;
     }
+    /* CENTER SIDEBAR MENU */
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+        text-align: center;
+    }
+    [data-testid="stSidebar"] div[role="radiogroup"] {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    [data-testid="stSidebar"] label[data-baseweb="radio"] {
+        width: 100%;
+        justify-content: center;
+    }
     /* 3. Metric Cards: Rounded & Thick */
     [data-testid="stMetric"] {
         background: linear-gradient(145deg, #1e1e1e, #141414);
@@ -234,21 +247,43 @@ elif menu_choice == "🏦 Assets & Debt":
     # --- ASSET TRACKER ---
     with tab_assets:
         st.subheader("Bank Accounts & Credit Limits")
+        st.info("📝 Tip: Edit the balances below and click 'Save'. Use positive numbers for Cash, negative for Debt limits if you prefer.")
         
-        # Editable Asset Table
+        # 1. Load Data
         try:
             assets_data = assets_sheet.get_all_records()
             assets_df = pd.DataFrame(assets_data)
         except:
-            assets_df = pd.DataFrame(columns=["Account Name", "Type", "Balance", "Last Updated"])
-            
-        edited_assets = st.data_editor(assets_df, num_rows="dynamic", use_container_width=True)
-        
-        if st.button("Save Asset Balances"):
-            assets_sheet.clear()
-            assets_sheet.append_row(["Account Name", "Type", "Balance", "Last Updated"])
+            assets_df = pd.DataFrame()
+    # 2. Self-Healing: If empty, create default template
+    if assets_df.empty:
+        default_data = [
+            {"Account Name": "Business Checking", "Type": "Cash", "Balance": 0, "Last Updated": str(pd.Timestamp.now().date())},
+            {"Account Name": "Savings / Reserve", "Type": "Cash", "Balance": 0, "Last Updated": str(pd.Timestamp.now().date())},
+            {"Account Name": "Credit Card Limit", "Type": "Credit", "Balance": 10000, "Last Updated": str(pd.Timestamp.now().date())}
+        ]
+        assets_df = pd.DataFrame(default_data)
+    # 3. Editable Table
+    edited_assets = st.data_editor(
+        assets_df, 
+        num_rows="dynamic", # Allow adding more rows
+        use_container_width=True,
+        column_config={
+            "Balance": st.column_config.NumberColumn("Balance ($)", format="$%d"),
+            "Type": st.column_config.SelectboxColumn("Type", options=["Cash", "Credit", "Investment"])
+        }
+    )
+    
+    # 4. Save Button
+    if st.button("Save Asset Balances"):
+        assets_sheet.clear()
+        # Re-add headers
+        assets_sheet.append_row(["Account Name", "Type", "Balance", "Last Updated"])
+        # Save the data
+        if not edited_assets.empty:
             assets_sheet.append_rows(edited_assets.values.tolist())
-            st.success("Assets Updated!")
+        st.success("✅ Balances Updated!")
+        st.rerun()
 
 # 📝 LOG EXPENSES (Updated Categories)
 elif menu_choice == "📝 Log Expenses":
