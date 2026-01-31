@@ -139,9 +139,15 @@ try:
     sales_sheet = get_worksheet("Sales", ["Event", "Type", "Revenue", "Date"])
     menu_sheet = get_worksheet("Menu", ["Item Name", "Description", "Price"])
     vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Date"])
+    assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Balance", "Last Updated"])
+    debt_sheet = get_worksheet("Debt_Log", ["Loan Name", "Transaction Type", "Amount", "Date"])
+    # NEW: Ingredients Tab
+    ing_sheet = get_worksheet("Ingredients", ["Item Name", "Bulk Unit (e.g. 50lb)", "Bulk Cost", "Unit Cost"])
     # NEW TABS
     assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Balance", "Last Updated"])
     debt_sheet = get_worksheet("Debt_Log", ["Loan Name", "Transaction Type", "Amount", "Date"])
+    # NEW: Ingredients Tab
+    ing_sheet = get_worksheet("Ingredients", ["Item Name", "Bulk Unit (e.g. 50lb)", "Bulk Cost", "Unit Cost"])
 
 except Exception as e:
     st.error(f"📉 Sheet Connection Failed: {e}")
@@ -150,10 +156,9 @@ except Exception as e:
 # --- 4. SIDEBAR NAVIGATION ---
 st.sidebar.title("🍕 Custom Crust HQ")
 st.sidebar.markdown("---")
-# Use a simple text label for the section header
 st.sidebar.markdown("**COMMAND CENTER**") 
 menu_choice = st.sidebar.radio("Navigation", 
-    ["📊 Dashboard", "🏦 Assets & Debt", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"], label_visibility="collapsed")
+    ["📊 Dashboard", "🏦 Assets & Debt", "🍳 Recipe Costing", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"], label_visibility="collapsed")
 st.sidebar.markdown("---")
 
 # --- 5. PAGE LOGIC ---
@@ -436,3 +441,108 @@ elif menu_choice == "🗄️ Document Vault":
                 st.success(f"✅ Logged: {doc_name}")
             else:
                 st.warning("Please enter a Name and a Link.")
+
+# 🍳 RECIPE COSTING
+elif menu_choice == "🍳 Recipe Costing":
+    st.header("Recipe & Food Cost Calculator")
+    
+    tab_pantry, tab_calc = st.tabs(["🥕 Ingredient Pantry", "🧮 Pizza Builder"])
+    
+    # --- TAB 1: PANTRY (Manage Bulk Costs) ---
+    with tab_pantry:
+        st.subheader("Manage Raw Ingredients")
+        st.info("💡 Enter your bulk items here. Example: 'Flour (50lb Bag)', Cost: $25.00.")
+        
+        # Form to add ingredient
+        with st.form("ing_form", clear_on_submit=True):
+            c1, c2, c3 = st.columns(3)
+            name = c1.text_input("Ingredient Name (e.g. Mozzarella)")
+            unit = c2.text_input("Unit Size (e.g. 1 lb, 1 oz, 1 can)")
+            cost = c3.number_input("Bulk Cost ($)", min_value=0.01)
+            
+            if st.form_submit_button("Add to Pantry"):
+                unit_cost = cost # Placeholder, in V2 we can add conversion logic
+                ing_sheet.append_row([name, unit, cost, cost]) # Simple Append
+                st.success(f"Added {name}")
+                st.rerun()
+        
+        # Editable Table
+        try:
+            ing_data = ing_sheet.get_all_records()
+            ing_df = pd.DataFrame(ing_data)
+            
+            if not ing_df.empty:
+                edited_ing = st.data_editor(
+                    ing_df, 
+                    num_rows="dynamic",
+                    use_container_width=True,
+                    column_config={
+                        "Bulk Cost": st.column_config.NumberColumn(format="$%.2f"),
+                        "Unit Cost": st.column_config.NumberColumn("Calculated Unit Cost ($)", format="$%.4f")
+                    }
+                )
+                
+                if st.button("Save Pantry Changes"):
+                    ing_sheet.clear()
+                    ing_sheet.append_row(["Item Name", "Bulk Unit (e.g. 50lb)", "Bulk Cost", "Unit Cost"])
+                    ing_sheet.append_rows(edited_ing.values.tolist())
+                    st.success("Pantry Updated!")
+        except:
+            st.write("No ingredients yet.")
+    # --- TAB 2: CALCULATOR (Build a Pizza) ---
+    with tab_calc:
+        st.subheader("Price Your Pizza")
+        
+        # 1. Select Ingredients
+        st.markdown("#### Step 1: Add Components")
+        
+        # Fetch ingredients for dropdown
+        try:
+            ing_list = pd.DataFrame(ing_sheet.get_all_records())
+            options = ing_list["Item Name"].tolist() if not ing_list.empty else []
+        except:
+            options = []
+        
+        if not options:
+            st.warning("Go to the Pantry tab and add ingredients first!")
+        else:
+            if "recipe_items" not in st.session_state:
+                st.session_state.recipe_items = []
+            c1, c2, c3 = st.columns([2, 1, 1])
+            sel_ing = c1.selectbox("Select Ingredient", options)
+            sel_cost = 0.0
+            if not ing_list.empty:
+                row = ing_list[ing_list["Item Name"] == sel_ing].iloc[0]
+                raw_cost = row.get("Unit Cost") if row.get("Unit Cost") else row.get("Bulk Cost")
+                sel_cost = float(raw_cost) if raw_cost else 0.0
+            qty = c2.number_input("Quantity Used", min_value=0.1, value=1.0, step=0.1)
+            st.write(f"Unit Cost: ${sel_cost:.2f}")
+            if c3.button("Add to Recipe"):
+                line_cost = sel_cost * qty
+                st.session_state.recipe_items.append({
+                    "Ingredient": sel_ing,
+                    "Qty": qty,
+                    "Cost": line_cost
+                })
+            st.divider()
+            st.markdown("#### Step 2: Cost Analysis")
+            if st.session_state.recipe_items:
+                recipe_df = pd.DataFrame(st.session_state.recipe_items)
+                st.dataframe(recipe_df, use_container_width=True)
+                total_food_cost = recipe_df["Cost"].sum()
+                if st.button("Clear Recipe"):
+                    st.session_state.recipe_items = []
+                    st.rerun()
+                st.divider()
+                k1, k2, k3 = st.columns(3)
+                k1.metric("🥗 Total Food Cost", f"${total_food_cost:.2f}")
+                target_price = k2.number_input("Target Selling Price ($)", value=15.00)
+                if target_price > 0:
+                    fc_percent = (total_food_cost / target_price) * 100
+                    profit = target_price - total_food_cost
+                    color = "normal"
+                    if fc_percent < 25: color = "normal"
+                    elif fc_percent < 35: color = "off"
+                    else: color = "inverse"
+                    k3.metric("Profit Margin", f"${profit:.2f} ({int(100-fc_percent)}%)", delta_color=color)
+                    st.progress(min(fc_percent/100, 1.0), text=f"Food Cost: {fc_percent:.1f}% (Aim for <30%)")
