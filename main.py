@@ -10,47 +10,32 @@ import io
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
 
-# --- CUSTOM CSS (PREMIUM DASHBOARD STYLE) ---
+# --- CUSTOM CSS (PREMIUM TEXTURE) ---
 st.markdown("""
 <style>
-    /* 1. Main Background: Subtle Radial Gradient for depth */
+    /* 1. Main Background: Dark Mesh/Leather Texture */
     .stApp {
-        background: radial-gradient(circle at top left, #1E1E1E, #0E1117);
+        background-color: #0e0e0e;
+        background-image: radial-gradient(#262626 1px, transparent 0);
+        background-size: 20px 20px;
     }
     
-    /* 2. Sidebar: Defined distinct look */
+    /* 2. Sidebar: Darker Contrast */
     [data-testid="stSidebar"] {
-        background-color: #0E1117;
-        border-right: 1px solid #262730;
+        background-color: #050505;
+        border-right: 1px solid #1f1f1f;
     }
-    
-    /* 3. Metric Cards (The "Box" look from the screenshot) */
+    /* 3. Metric Cards (Floating Effect) */
     [data-testid="stMetric"] {
-        background-color: #262730;
+        background: linear-gradient(145deg, #1e1e1e, #141414);
         padding: 15px 20px;
         border-radius: 12px;
-        border: 1px solid #3B3D45;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        transition: transform 0.2s ease-in-out;
+        border: 1px solid #333;
+        box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
     }
-    
-    [data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        border-color: #FF4B4B;
-    }
-    
-    /* 4. Input Fields & Dropdowns (Cleaner look) */
-    .stTextInput input, .stSelectbox div[data-baseweb="select"] {
-        background-color: #1E1E1E !important;
-        border: 1px solid #3B3D45;
-        border-radius: 8px;
-    }
-    
-    /* 5. Headers */
-    h1, h2, h3 {
-        font-family: 'Helvetica Neue', sans-serif;
-        font-weight: 600;
-        color: #E0E0E0;
+    /* 4. Remove default Plotly white/black backgrounds */
+    .js-plotly-plot .plotly .main-svg {
+        background-color: rgba(0,0,0,0) !important;
     }
 </style>
 """, unsafe_allow_html=True)
