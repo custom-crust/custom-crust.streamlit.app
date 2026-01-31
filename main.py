@@ -100,19 +100,22 @@ client, drive_service = get_manager()
 # --- 3. CONNECT TO SHEETS ---
 try:
     sheet = client.open_by_key(SHEET_ID)
-
+    
     def get_worksheet(name, headers):
         try:
             return sheet.worksheet(name)
-        except Exception:
+        except:
             ws = sheet.add_worksheet(title=name, rows="100", cols="10")
             ws.append_row(headers)
             return ws
-
     ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date"])
     sales_sheet = get_worksheet("Sales", ["Event", "Type", "Revenue", "Date"])
     menu_sheet = get_worksheet("Menu", ["Item Name", "Description", "Price"])
-    vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Upload Date"])
+    vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Date"])
+    # NEW TABS
+    assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Balance", "Last Updated"])
+    debt_sheet = get_worksheet("Debt_Log", ["Loan Name", "Transaction Type", "Amount", "Date"])
+
 except Exception as e:
     st.error(f"📉 Sheet Connection Failed: {e}")
     st.stop()
@@ -120,61 +123,132 @@ except Exception as e:
 # --- 4. SIDEBAR NAVIGATION ---
 st.sidebar.title("🍕 Custom Crust HQ")
 st.sidebar.markdown("---")
-menu_choice = st.sidebar.radio(
-    "Command Center",
-    ["📊 Dashboard", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"],
-)
+menu_choice = st.sidebar.radio("Command Center", 
+    ["📊 Dashboard", "🏦 Assets & Debt", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"])
 st.sidebar.markdown("---")
 
 # --- 5. PAGE LOGIC ---
 
-# 📊 DASHBOARD (Upgraded)
+# 📊 DASHBOARD (Upgraded with Net Worth)
 if menu_choice == "📊 Dashboard":
     st.header("Business Health Overview")
     
     # Load Data
     expenses = pd.DataFrame(ledger_sheet.get_all_records())
     sales = pd.DataFrame(sales_sheet.get_all_records())
+    assets = pd.DataFrame(assets_sheet.get_all_records())
+    debts = pd.DataFrame(debt_sheet.get_all_records())
     
-    # Clean Data
-    total_exp = 0.0
-    total_rev = 0.0
+    # Calc Totals
+    total_exp = pd.to_numeric(expenses['Cost'], errors='coerce').sum() if not expenses.empty else 0
+    total_rev = pd.to_numeric(sales['Revenue'], errors='coerce').sum() if not sales.empty else 0
     
-    if not expenses.empty:
-        expenses['Cost'] = pd.to_numeric(expenses['Cost'], errors='coerce').fillna(0)
-        total_exp = expenses['Cost'].sum()
-        
-    if not sales.empty:
-        sales['Revenue'] = pd.to_numeric(sales['Revenue'], errors='coerce').fillna(0)
-        total_rev = sales['Revenue'].sum()
+    # Asset Calc
+    total_assets = pd.to_numeric(assets['Balance'], errors='coerce').sum() if not assets.empty else 0
     
+    # Debt Calc (Total Borrowed - Total Repaid)
+    total_debt = 0
+    if not debts.empty:
+        debts['Amount'] = pd.to_numeric(debts['Amount'], errors='coerce').fillna(0)
+        borrowed = debts[debts['Transaction Type'] == 'Borrow']['Amount'].sum()
+        repaid = debts[debts['Transaction Type'] == 'Repayment']['Amount'].sum()
+        total_debt = borrowed - repaid
     # Top Metrics
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Total Sales", f"${total_rev:,.2f}")
-    c2.metric("Total Expenses", f"${total_exp:,.2f}")
-    net_color = "normal" if (total_rev - total_exp) >= 0 else "inverse"
-    c3.metric("Net Profit", f"${total_rev - total_exp:,.2f}", delta_color=net_color)
-    
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total Sales", f"${total_rev:,.0f}")
+    c2.metric("Total Expenses", f"${total_exp:,.0f}")
+    c3.metric("Net Profit", f"${total_rev - total_exp:,.0f}")
+    c4.metric("Cash & Assets", f"${total_assets:,.0f}")
     st.divider()
-    
     # Charts Area
-    col_charts1, col_charts2 = st.columns(2)
-    
+    col_charts1, col_charts2, col_charts3 = st.columns(3)
     with col_charts1:
-        st.subheader("💸 Expense Breakdown")
+        st.subheader("💸 Expenses")
         if not expenses.empty and total_exp > 0:
-            fig_exp = px.pie(expenses, values='Cost', names='Category', hole=0.4)
+            fig_exp = px.pie(expenses, values='Cost', names='Category', hole=0.5)
+            fig_exp.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#E0E0E0", showlegend=False)
             st.plotly_chart(fig_exp, use_container_width=True)
-        else:
-            st.info("Log expenses to see the breakdown.")
-            
     with col_charts2:
-        st.subheader("💰 Revenue Sources")
+        st.subheader("💰 Revenue")
         if not sales.empty and total_rev > 0:
-            fig_rev = px.pie(sales, values='Revenue', names='Type', hole=0.4)
+            fig_rev = px.pie(sales, values='Revenue', names='Type', hole=0.5)
+            fig_rev.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#E0E0E0", showlegend=False)
             st.plotly_chart(fig_rev, use_container_width=True)
-        else:
-            st.info("Log sales to see the breakdown.")
+    with col_charts3:
+        st.subheader("⚖️ Net Worth")
+        # Asset vs Debt Chart
+        ad_df = pd.DataFrame({
+            "Type": ["Assets (Cash/Credit)", "Total Debt"],
+            "Amount": [total_assets, total_debt]
+        })
+        if total_assets > 0 or total_debt > 0:
+            fig_net = px.pie(ad_df, values='Amount', names='Type', hole=0.5, color='Type', color_discrete_map={'Total Debt':'#FF4B4B', 'Assets (Cash/Credit)':'#00CC96'})
+            fig_net.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#E0E0E0", showlegend=False)
+            st.plotly_chart(fig_net, use_container_width=True)
+
+# 🏦 ASSETS & DEBT MANAGER
+elif menu_choice == "🏦 Assets & Debt":
+    st.header("Assets & Liability Tracker")
+    
+    tab_debt, tab_assets = st.tabs(["📉 Manage Debt", "💵 Manage Assets"])
+    
+    # --- DEBT TRACKER ---
+    with tab_debt:
+        st.subheader("Loan Repayment Tracker")
+        
+        # Form to Log Borrowing or Payment
+        with st.form("debt_form", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            loan_name = c1.text_input("Creditor Name", value="Father's Loan")
+            trans_type = c2.selectbox("Action", ["Repayment", "Borrow"])
+            amount = st.number_input("Amount ($)", min_value=0.01)
+            date = st.date_input("Date")
+            
+            if st.form_submit_button("Update Loan Balance"):
+                debt_sheet.append_row([loan_name, trans_type, amount, str(date)])
+                st.success("Transaction Logged!")
+                st.rerun()
+        
+        # Show Balances
+        debts = pd.DataFrame(debt_sheet.get_all_records())
+        if not debts.empty:
+            debts['Amount'] = pd.to_numeric(debts['Amount'], errors='coerce')
+            # Group by Loan Name
+            for loan in debts['Loan Name'].unique():
+                subset = debts[debts['Loan Name'] == loan]
+                borrowed = subset[subset['Transaction Type'] == 'Borrow']['Amount'].sum()
+                repaid = subset[subset['Transaction Type'] == 'Repayment']['Amount'].sum()
+                balance = borrowed - repaid
+                
+                st.divider()
+                st.write(f"**{loan}**")
+                k1, k2, k3 = st.columns(3)
+                k1.metric("Original Loan", f"${borrowed:,.0f}")
+                k2.metric("Paid Off", f"${repaid:,.0f}")
+                k3.metric("Remaining Balance", f"${balance:,.0f}", delta=-balance)
+                
+                # Progress Bar
+                if borrowed > 0:
+                    progress = min(repaid / borrowed, 1.0)
+                    st.progress(progress, text=f"{int(progress*100)}% Paid Off")
+    # --- ASSET TRACKER ---
+    with tab_assets:
+        st.subheader("Bank Accounts & Credit Limits")
+        
+        # Editable Asset Table
+        try:
+            assets_data = assets_sheet.get_all_records()
+            assets_df = pd.DataFrame(assets_data)
+        except:
+            assets_df = pd.DataFrame(columns=["Account Name", "Type", "Balance", "Last Updated"])
+            
+        edited_assets = st.data_editor(assets_df, num_rows="dynamic", use_container_width=True)
+        
+        if st.button("Save Asset Balances"):
+            assets_sheet.clear()
+            assets_sheet.append_row(["Account Name", "Type", "Balance", "Last Updated"])
+            assets_sheet.append_rows(edited_assets.values.tolist())
+            st.success("Assets Updated!")
 
 # 📝 LOG EXPENSES (Updated Categories)
 elif menu_choice == "📝 Log Expenses":
