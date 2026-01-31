@@ -212,7 +212,8 @@ elif menu_choice == "🏦 Assets & Debt":
         # Form to Log Borrowing or Payment
         with st.form("debt_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
-            loan_name = c1.text_input("Creditor Name", value="Father's Loan")
+            # UPDATED: Default value is now generic
+            loan_name = c1.text_input("Creditor Name", value="Business Loan")
             trans_type = c2.selectbox("Action", ["Repayment", "Borrow"])
             amount = st.number_input("Amount ($)", min_value=0.01)
             date = st.date_input("Date")
@@ -247,7 +248,7 @@ elif menu_choice == "🏦 Assets & Debt":
     # --- ASSET TRACKER ---
     with tab_assets:
         st.subheader("Bank Accounts & Credit Limits")
-        st.info("📝 Tip: Edit the balances below and click 'Save'. Use positive numbers for Cash, negative for Debt limits if you prefer.")
+        st.info("📝 Tip: Edit the balances below and click 'Save'.")
         
         # 1. Load Data
         try:
