@@ -427,27 +427,105 @@ elif menu_choice == "🍳 Recipe Costing":
 # 📝 LOG EXPENSES
 elif menu_choice == "📝 Log Expenses":
     st.header("Log Business Expenses")
+    
+    # 1. LOAD & CALCULATE METRICS
+    df_exp = get_df_robust(ledger_sheet)
+    mtd_exp = 0.0
+    ytd_exp = 0.0
+    
+    if not df_exp.empty and "Cost" in df_exp.columns:
+        # Process dates and costs
+        df_exp["Clean_Cost"] = df_exp["Cost"].apply(clean_money)
+        df_exp["Date_Obj"] = pd.to_datetime(df_exp["Date"], errors="coerce")
+        
+        now = pd.Timestamp.now()
+        # MTD (Month to Date)
+        mtd_exp = df_exp[
+            (df_exp["Date_Obj"].dt.month == now.month) & 
+            (df_exp["Date_Obj"].dt.year == now.year)
+        ]["Clean_Cost"].sum()
+        
+        # YTD (Year to Date)
+        ytd_exp = df_exp[df_exp["Date_Obj"].dt.year == now.year]["Clean_Cost"].sum()
+
+    # 2. DISPLAY BOXY METRICS
+    c1, c2 = st.columns(2)
+    c1.metric("📅 Month-to-Date Expenses", f"${mtd_exp:,.2f}")
+    c2.metric("📆 Year-to-Date Expenses", f"${ytd_exp:,.2f}")
+    
+    st.markdown("---")
+
+    # 3. INPUT FORM
     with st.form("expense_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
         item_name = col1.text_input("Item Name (e.g. Mozzarella 50lbs)")
-        category = col2.selectbox("Category", ["Startup & Assets (Trailer, Truck, Ovens)","Inventory (Food & Drink)", "Equipment & Supplies","Vehicle & Fuel", "Marketing & Ads", "Utilities", "Other"])
+        category = col2.selectbox("Category", [
+            "Startup & Assets (Trailer, Truck, Ovens)",
+            "Inventory (Food & Drink)", "Equipment & Supplies", 
+            "Vehicle & Fuel", "Marketing & Ads", "Utilities", "Other"
+        ])
         cost = st.number_input("Cost ($)", min_value=0.01)
         date = st.date_input("Date")
+        
         if st.form_submit_button("Add Expense"):
             ledger_sheet.append_row([item_name, category, cost, str(date)])
-            st.success("Expense Logged!")
+            st.success("✅ Expense Logged!")
+            st.rerun()
+
+    # 4. RECENT HISTORY TABLE
+    st.subheader("🕒 Recent Expenses")
+    if not df_exp.empty:
+        # Show last 5 entries, sorted by most recent
+        recent = df_exp.tail(5).iloc[::-1] # Reverse order
+        st.dataframe(recent[["Item", "Category", "Cost", "Date"]], use_container_width=True, hide_index=True)
 # 💰 SALES & REVENUE
 elif menu_choice == "💰 Sales & Revenue":
     st.header("Log Sales Revenue")
+    
+    # 1. LOAD & CALCULATE METRICS
+    df_sales = get_df_robust(sales_sheet)
+    mtd_rev = 0.0
+    ytd_rev = 0.0
+    
+    if not df_sales.empty and "Revenue" in df_sales.columns:
+        df_sales["Clean_Rev"] = df_sales["Revenue"].apply(clean_money)
+        df_sales["Date_Obj"] = pd.to_datetime(df_sales["Date"], errors="coerce")
+        
+        now = pd.Timestamp.now()
+        # MTD
+        mtd_rev = df_sales[
+            (df_sales["Date_Obj"].dt.month == now.month) & 
+            (df_sales["Date_Obj"].dt.year == now.year)
+        ]["Clean_Rev"].sum()
+        
+        # YTD
+        ytd_rev = df_sales[df_sales["Date_Obj"].dt.year == now.year]["Clean_Rev"].sum()
+
+    # 2. DISPLAY BOXY METRICS
+    c1, c2 = st.columns(2)
+    c1.metric("💰 MTD Sales", f"${mtd_rev:,.2f}")
+    c2.metric("🚀 YTD Sales", f"${ytd_rev:,.2f}")
+    
+    st.markdown("---")
+
+    # 3. INPUT FORM
     with st.form("sales_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
         event = c1.text_input("Event Name (e.g. Tuesday Lunch)")
-        s_type = c2.selectbox("Type", ["Festival/Event", "Catering", "Private Party"])
+        s_type = c2.selectbox("Type", ["Festival/Event", "Catering", "Private Party", "Daily Service"])
         rev = st.number_input("Total Revenue ($)", min_value=0.01)
         date = st.date_input("Date")
+        
         if st.form_submit_button("Log Sales"):
             sales_sheet.append_row([event, s_type, rev, str(date)])
-            st.success("Sales Logged!")
+            st.success("✅ Sales Logged!")
+            st.rerun()
+
+    # 4. RECENT HISTORY TABLE
+    st.subheader("🕒 Recent Sales")
+    if not df_sales.empty:
+        recent_sales = df_sales.tail(5).iloc[::-1]
+        st.dataframe(recent_sales[["Event", "Type", "Revenue", "Date"]], use_container_width=True, hide_index=True)
 # 🍕 MENU EDITOR
 elif menu_choice == "🍕 Menu Editor":
     st.header("Menu Management")
