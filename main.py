@@ -1,5 +1,4 @@
-
-[import streamlit as st
+import streamlit as st
 import pandas as pd
 import plotly.express as px
 import gspread
@@ -15,6 +14,7 @@ st.set_page_config(page_title="Custom Crust HQ", page_icon="🍕", layout="wide"
 def connect_to_gsheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     
+    # Check for secrets (handles Uppercase/Lowercase differences)
     if "GCP_SERVICE_ACCOUNT" in st.secrets:
         creds_dict = st.secrets["GCP_SERVICE_ACCOUNT"]
     elif "gcp_service_account" in st.secrets:
@@ -35,7 +35,10 @@ def connect_to_gsheets():
         st.error(f"🚨 Connection Error: {e}")
         st.stop()
 
-sheet = connect_to_gsheets()
+try:
+    sheet = connect_to_gsheets()
+except:
+    st.stop()
 
 # Helper: Get Worksheet
 def get_worksheet(name, headers):
@@ -546,12 +549,14 @@ elif menu_choice == "🍳 Recipe Costing":
     with tab_pantry:
         st.subheader("Pantry Inventory")
         with st.form("ing_form", clear_on_submit=True):
-            c1, c2, c3 = st.columns(3)
+            c1, c2, c3, c4 = st.columns(4)
             name = c1.text_input("Name")
             unit = c2.text_input("Unit (e.g. lb, oz)")
-            cost = c3.number_input("Cost ($)", min_value=0.01)
+            bulk_cost = c3.number_input("Bulk Cost ($)", min_value=0.01)
+            bulk_qty = c4.number_input("Bulk Qty", min_value=0.01)
             if st.form_submit_button("Add Ingredient"):
-                ing_sheet.append_row([name, unit, cost, cost])
+                unit_cost = bulk_cost / bulk_qty if bulk_qty else 0.0
+                ing_sheet.append_row([name, unit, bulk_cost, unit_cost])
                 st.success("Added!")
                 st.rerun()
         if not ing_df.empty:
