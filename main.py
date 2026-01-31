@@ -1,21 +1,20 @@
-# FORCE UPDATE: V5.0 (Nuclear Reset)
-import streamlit as st
+
+[import streamlit as st
 import pandas as pd
 import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
 import datetime
+import random
 
 # --- 1. SETUP PAGE CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", page_icon="🍕", layout="wide")
-
 
 # --- 2. CONNECT TO GOOGLE SHEETS (Smart Auth) ---
 @st.cache_resource
 def connect_to_gsheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     
-    # Try multiple secret keys (Lowercase vs Uppercase)
     if "GCP_SERVICE_ACCOUNT" in st.secrets:
         creds_dict = st.secrets["GCP_SERVICE_ACCOUNT"]
     elif "gcp_service_account" in st.secrets:
@@ -57,8 +56,9 @@ vendor_sheet = get_worksheet("Vendors", ["Company Name", "Contact Person", "Phon
 menu_sheet = get_worksheet("Menu", ["Item Name", "Description", "Price", "Category"])
 ing_sheet = get_worksheet("Ingredients", ["Item Name", "Bulk Unit", "Bulk Cost", "Unit Cost"])
 vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Date"])
+invoice_sheet = get_worksheet("Invoices", ["Invoice ID", "Client Name", "Date", "Total Amount", "Status"])
 
-# --- 3. CUSTOM CSS ---
+# --- 3. CUSTOM CSS (FINAL EXECUTIVE THEME) ---
 st.markdown("""
 <style>
     /* Main Background */
@@ -100,19 +100,25 @@ st.markdown("""
         border-color: #FF4B4B; background: #1e1e1e; color: #fff; transform: scale(1.02);
     }
 
-    /* METRIC CARDS */
-    [data-testid="stMetric"] {
-        background: rgba(22, 22, 22, 0.8);
-        backdrop-filter: blur(5px);
-        border: 1px solid #333;
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    /* INVOICE PREVIEW CARD (Paper Look) */
+    .invoice-box {
+        background: white;
+        color: #333;
+        padding: 40px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+        margin-top: 20px;
+        box-shadow: 0 0 30px rgba(0,0,0,0.5);
     }
-    [data-testid="stMetric"]:hover { border-color: #FF4B4B; }
-    [data-testid="stMetricLabel"] { color: #888 !important; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
-    [data-testid="stMetricValue"] { color: #fff !important; font-size: 26px; font-weight: 700; }
+    .invoice-header { display: flex; justify-content: space-between; border-bottom: 2px solid #333; padding-bottom: 20px; margin-bottom: 20px; }
+    .invoice-total { font-size: 22px; font-weight: bold; text-align: right; margin-top: 30px; border-top: 2px solid #333; padding-top: 10px; }
+    .line-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #ccc; }
     
+    /* GENERAL TEXT OVERRIDES FOR INVOICE */
+    .invoice-box h1, .invoice-box h2, .invoice-box h3, .invoice-box p, .invoice-box div, .invoice-box span {
+        color: #333 !important; 
+    }
+
     h1, h2, h3 { color: #fff !important; }
     p, span, div { color: #ccc; }
     hr { border: 0; height: 1px; background: #333; margin: 20px 0; }
@@ -138,7 +144,7 @@ def get_df_robust(sheet_obj):
         return pd.DataFrame(data[1:], columns=headers)
     except: return pd.DataFrame()
 
-# --- 5. SIDEBAR NAVIGATION (Updated) ---
+# --- 5. SIDEBAR NAVIGATION ---
 st.sidebar.markdown('<p class="sidebar-logo">🍕 CUSTOM CRUST<br>HQ 🍕</p>', unsafe_allow_html=True)
 st.sidebar.markdown("---")
 st.sidebar.markdown("**COMMAND CENTER**") 
@@ -146,6 +152,7 @@ menu_choice = st.sidebar.radio("Navigation",
     [
         "📊 Dashboard", 
         "📅 Planner & Projections",
+        "🧾 Invoice Generator",
         "💰 Sales & Revenue", 
         "📝 Log Expenses", 
         "🏦 Assets & Debt", 
@@ -164,13 +171,11 @@ if menu_choice == "📊 Dashboard":
     st.title("🚀 Business Command Center")
     st.markdown("###")
     
-    # Load All Data
     df_exp = get_df_robust(ledger_sheet)
     df_sales = get_df_robust(sales_sheet)
     df_assets = get_df_robust(assets_sheet)
     df_debt = get_df_robust(debt_sheet)
 
-    # Calculate Totals
     total_exp = 0.0
     if not df_exp.empty and "Cost" in df_exp.columns:
         df_exp["Clean_Cost"] = df_exp["Cost"].apply(clean_money)
@@ -196,7 +201,6 @@ if menu_choice == "📊 Dashboard":
             repaid = df_debt[df_debt["Norm_Type"].str.contains("repay")]["Clean_Amt"].sum()
             total_debt = borrowed - repaid
 
-    # Top Metrics
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("💰 Total Revenue", f"${total_rev:,.0f}")
     c2.metric("💸 Total Expenses", f"${total_exp:,.0f}")
@@ -204,11 +208,7 @@ if menu_choice == "📊 Dashboard":
     c4.metric("🏛️ Business Equity", f"${total_assets - total_debt:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
 
     st.markdown("---")
-
-    # Middle Zone: Operations
-    st.subheader("📊 Operational Performance")
     c_op1, c_op2 = st.columns(2)
-    
     with c_op1:
         st.caption("Revenue Sources")
         if total_rev > 0 and "Type" in df_sales.columns:
@@ -225,15 +225,107 @@ if menu_choice == "📊 Dashboard":
             st.plotly_chart(fig, use_container_width=True)
         else: st.info("No expense data.")
 
-# 📅 PLANNER & PROJECTIONS
+# 🧾 INVOICE GENERATOR (NEW)
+elif menu_choice == "🧾 Invoice Generator":
+    st.header("Invoice Builder")
+    
+    # Session State
+    if "invoice_items" not in st.session_state: st.session_state.invoice_items = []
+    
+    col_build, col_view = st.columns([1, 1])
+    
+    with col_build:
+        st.subheader("1. Add Details")
+        
+        client = st.text_input("Client Name", placeholder="e.g. John Doe / Corporate Event")
+        inv_date = st.date_input("Date")
+        inv_id = f"INV-{random.randint(1000,9999)}"
+        
+        st.markdown("---")
+        st.caption("Add Line Items")
+        
+        menu_df = get_df_robust(menu_sheet)
+        tab_menu, tab_custom = st.tabs(["From Menu", "Custom Item"])
+        
+        with tab_menu:
+            if not menu_df.empty:
+                sel_item = st.selectbox("Select Menu Item", menu_df["Item Name"])
+                price_lookup = menu_df[menu_df["Item Name"] == sel_item]["Price"].values
+                default_price = clean_money(price_lookup[0]) if len(price_lookup) > 0 else 0.0
+                sel_price = st.number_input("Unit Price ($)", value=default_price, key="menu_price")
+                sel_qty = st.number_input("Qty", value=1, key="menu_qty")
+                if st.button("Add Menu Item"):
+                    st.session_state.invoice_items.append({"Item": sel_item, "Qty": sel_qty, "Price": sel_price, "Total": sel_qty*sel_price})
+            else:
+                st.warning("Menu is empty.")
+        
+        with tab_custom:
+            cust_item = st.text_input("Description (e.g. Catering Fee)")
+            cust_price = st.number_input("Unit Price ($)", value=0.0, key="cust_price")
+            cust_qty = st.number_input("Qty", value=1, key="cust_qty")
+            if st.button("Add Custom Item"):
+                st.session_state.invoice_items.append({"Item": cust_item, "Qty": cust_qty, "Price": cust_price, "Total": cust_qty*cust_price})
+        
+        if st.button("Clear Invoice"):
+            st.session_state.invoice_items = []
+            st.rerun()
+
+    with col_view:
+        st.subheader("2. Preview & Save")
+        
+        subtotal = sum(item['Total'] for item in st.session_state.invoice_items)
+        tax = subtotal * 0.07 
+        total = subtotal + tax
+        
+        # HTML INVOICE
+        html_items = ""
+        for i in st.session_state.invoice_items:
+            html_items += f"<div class='line-item'><span>{i['Qty']}x {i['Item']}</span><span>${i['Total']:.2f}</span></div>"
+
+        invoice_html = f"""
+        <div class="invoice-box">
+            <div class="invoice-header">
+                <div>
+                    <strong>CUSTOM CRUST PIZZA</strong><br>
+                    Melrose, MA<br>
+                    <small>ID: {inv_id}</small>
+                </div>
+                <div style="text-align:right">
+                    <strong>BILL TO:</strong><br>
+                    {client}<br>
+                    {inv_date}
+                </div>
+            </div>
+            <div style="margin-bottom: 20px;">
+                <strong>DESCRIPTION</strong>
+                <hr style="margin: 5px 0; border-color: #ddd;">
+                {html_items}
+            </div>
+            <div class="invoice-total">
+                <small>Subtotal: ${subtotal:.2f}</small><br>
+                <small>Tax (7%): ${tax:.2f}</small><br>
+                TOTAL: ${total:.2f}
+            </div>
+        </div>
+        """
+        st.markdown(invoice_html, unsafe_allow_html=True)
+        
+        st.markdown("###")
+        if st.button("💾 Save to Records", type="primary"):
+            if client and st.session_state.invoice_items:
+                invoice_sheet.append_row([inv_id, client, str(inv_date), total, "Unpaid"])
+                st.success(f"Invoice {inv_id} saved to database!")
+                st.balloons()
+            else:
+                st.error("Please add a client name and at least one item.")
+
+# 📅 PLANNER
 elif menu_choice == "📅 Planner & Projections":
     st.header("Future Event Planner")
     
-    # 1. Load Data
     df_plan = get_df_robust(planner_sheet)
-    df_sales = get_df_robust(sales_sheet) # Needed for "Actuals"
+    df_sales = get_df_robust(sales_sheet)
     
-    # 2. Input Form
     with st.expander("➕ Add Upcoming Event / Catering Gig", expanded=True):
         with st.form("planner_form", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
@@ -241,70 +333,58 @@ elif menu_choice == "📅 Planner & Projections":
             evt_date = c2.date_input("Date")
             evt_rev = c3.number_input("Projected Revenue ($)", min_value=0.0)
             status = st.selectbox("Status", ["Confirmed", "Tentative", "Lead"])
-            
             if st.form_submit_button("Add Event"):
                 planner_sheet.append_row([evt_name, str(evt_date), evt_rev, status])
                 st.success("Event Added!")
                 st.rerun()
     
-    # 3. Process Data for Charting
     total_proj = 0.0
     combined_data = []
 
-    # Get Projected
     if not df_plan.empty:
         df_plan["Projected Revenue"] = df_plan["Projected Revenue"].apply(clean_money)
         df_plan["Date"] = pd.to_datetime(df_plan["Date"], errors="coerce")
         df_plan["Month"] = df_plan["Date"].dt.strftime("%Y-%m")
         total_proj = df_plan["Projected Revenue"].sum()
         
-        # Group by Month
         proj_grouped = df_plan.groupby("Month")["Projected Revenue"].sum().reset_index()
         proj_grouped["Type"] = "Projected"
         proj_grouped.rename(columns={"Projected Revenue": "Amount"}, inplace=True)
         combined_data.append(proj_grouped)
 
-    # Get Actuals (from Sales)
     if not df_sales.empty:
         df_sales["Revenue"] = df_sales["Revenue"].apply(clean_money)
         df_sales["Date"] = pd.to_datetime(df_sales["Date"], errors="coerce")
         df_sales["Month"] = df_sales["Date"].dt.strftime("%Y-%m")
-        
         act_grouped = df_sales.groupby("Month")["Revenue"].sum().reset_index()
         act_grouped["Type"] = "Actual Sales"
         act_grouped.rename(columns={"Revenue": "Amount"}, inplace=True)
         combined_data.append(act_grouped)
 
-    # 4. Metrics & Chart
     st.divider()
     c1, c2 = st.columns([1, 2])
-    
     with c1:
-        st.metric("🔮 Total Pipeline (Projected)", f"${total_proj:,.0f}")
+        st.metric("🔮 Total Pipeline", f"${total_proj:,.0f}")
         st.caption("Upcoming Events:")
         if not df_plan.empty:
             st.dataframe(df_plan[["Event Name", "Date", "Projected Revenue", "Status"]], hide_index=True)
-        else:
-            st.info("No upcoming events logged.")
+        else: st.info("No upcoming events.")
 
     with c2:
-        st.subheader("📊 Actual vs. Projected Sales")
+        st.subheader("📊 Actual vs. Projected")
         if combined_data:
             final_df = pd.concat(combined_data)
             fig = px.bar(final_df, x="Month", y="Amount", color="Type", barmode="group",
                          color_discrete_map={"Actual Sales": "#00CC96", "Projected": "#636EFA"})
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
             st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("Log sales or events to see projections.")
+        else: st.info("Log sales or events to see charts.")
 
-# 💰 SALES & REVENUE (Updated)
+# 💰 SALES & REVENUE
 elif menu_choice == "💰 Sales & Revenue":
     st.header("Log Sales Revenue")
-    
     df_sales = get_df_robust(sales_sheet)
     mtd_rev, ytd_rev = 0.0, 0.0
-    
     if not df_sales.empty:
         df_sales["Clean_Rev"] = df_sales["Revenue"].apply(clean_money)
         df_sales["Date_Obj"] = pd.to_datetime(df_sales["Date"], errors="coerce")
@@ -325,20 +405,18 @@ elif menu_choice == "💰 Sales & Revenue":
         date = st.date_input("Date")
         if st.form_submit_button("Log Sales"):
             sales_sheet.append_row([event, s_type, rev, str(date)])
-            st.success("✅ Sales Logged!")
+            st.success("Sales Logged!")
             st.rerun()
             
     if not df_sales.empty:
         st.subheader("🕒 Recent Sales")
         st.dataframe(df_sales.tail(5).iloc[::-1][["Event", "Type", "Revenue", "Date"]], use_container_width=True, hide_index=True)
 
-# 📝 LOG EXPENSES (Updated)
+# 📝 LOG EXPENSES
 elif menu_choice == "📝 Log Expenses":
     st.header("Log Business Expenses")
-    
     df_exp = get_df_robust(ledger_sheet)
     mtd_exp, ytd_exp = 0.0, 0.0
-    
     if not df_exp.empty:
         df_exp["Clean_Cost"] = df_exp["Cost"].apply(clean_money)
         df_exp["Date_Obj"] = pd.to_datetime(df_exp["Date"], errors="coerce")
@@ -362,7 +440,7 @@ elif menu_choice == "📝 Log Expenses":
         date = st.date_input("Date")
         if st.form_submit_button("Add Expense"):
             ledger_sheet.append_row([item_name, category, cost, str(date)])
-            st.success("✅ Expense Logged!")
+            st.success("Expense Logged!")
             st.rerun()
 
     if not df_exp.empty:
@@ -418,30 +496,25 @@ elif menu_choice == "🏦 Assets & Debt":
             st.success("Saved!")
             st.rerun()
 
-# 🤝 VENDOR NETWORK (NEW)
+# 🤝 VENDOR NETWORK
 elif menu_choice == "🤝 Vendor Network":
     st.header("Vendor & Supplier Directory")
     
-    # Input Form
     with st.expander("➕ Add New Vendor"):
         with st.form("vendor_form", clear_on_submit=True):
             c1, c2 = st.columns(2)
             comp_name = c1.text_input("Company Name")
             contact = c2.text_input("Contact Person")
-            
             c3, c4 = st.columns(2)
             phone = c3.text_input("Phone Number")
             email = c4.text_input("Email")
-            
             address = st.text_area("Address / Notes")
             category = st.selectbox("Category", ["Food Supplier", "Equipment", "Maintenance", "Marketing", "Other"])
-            
             if st.form_submit_button("Save Vendor"):
                 vendor_sheet.append_row([comp_name, contact, phone, email, address, category])
                 st.success("Vendor Saved!")
                 st.rerun()
 
-    # Display Directory
     st.subheader("📋 Vendor List")
     df_vendors = get_df_robust(vendor_sheet)
     if not df_vendors.empty:
@@ -460,40 +533,57 @@ elif menu_choice == "🍕 Menu Editor":
         menu_sheet.append_rows(edited_menu.values.tolist())
         st.success("Menu Updated!")
 
-# 🍳 RECIPE COSTING
+# 🍳 RECIPE COSTING (FIXED)
 elif menu_choice == "🍳 Recipe Costing":
     st.header("Recipe Calculator")
+    
+    # Load Ingredients
+    ing_df = get_df_robust(ing_sheet)
+    
     tab_pantry, tab_calc = st.tabs(["🥕 Ingredients", "🧮 Calculator"])
+    
+    # TAB 1: Pantry (Always Visible)
     with tab_pantry:
-        with st.form("ing_form"):
+        st.subheader("Pantry Inventory")
+        with st.form("ing_form", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
             name = c1.text_input("Name")
-            unit = c2.text_input("Unit")
-            cost = c3.number_input("Cost", min_value=0.01)
-            if st.form_submit_button("Add"):
+            unit = c2.text_input("Unit (e.g. lb, oz)")
+            cost = c3.number_input("Cost ($)", min_value=0.01)
+            if st.form_submit_button("Add Ingredient"):
                 ing_sheet.append_row([name, unit, cost, cost])
                 st.success("Added!")
                 st.rerun()
-        st.dataframe(get_df_robust(ing_sheet), use_container_width=True)
+        if not ing_df.empty:
+            st.dataframe(ing_df, use_container_width=True)
+        else:
+            st.info("Your pantry is empty. Add ingredients above.")
     
+    # TAB 2: Calculator (Always Visible, just changes state)
     with tab_calc:
-        ing_df = get_df_robust(ing_sheet)
+        st.subheader("Build a Recipe")
         if not ing_df.empty:
             if "recipe" not in st.session_state: st.session_state.recipe = []
+            
             c1, c2, c3 = st.columns([2,1,1])
-            sel = c1.selectbox("Ingredient", ing_df["Item Name"])
-            qty = c2.number_input("Qty", 1.0)
-            if c3.button("Add"):
-                cost = clean_money(ing_df[ing_df["Item Name"] == sel].iloc[0].get("Unit Cost", 0))
-                st.session_state.recipe.append({"Item": sel, "Qty": qty, "Cost": cost * qty})
+            sel = c1.selectbox("Select Ingredient", ing_df["Item Name"])
+            qty = c2.number_input("Qty Needed", 1.0)
+            if c3.button("Add to Recipe"):
+                # Safe look up
+                row = ing_df[ing_df["Item Name"] == sel].iloc[0]
+                u_cost = row.get("Unit Cost", row.get("Cost", 0))
+                cost_val = clean_money(u_cost)
+                st.session_state.recipe.append({"Item": sel, "Qty": qty, "Cost": cost_val * qty})
             
             if st.session_state.recipe:
                 rdf = pd.DataFrame(st.session_state.recipe)
                 st.dataframe(rdf)
-                st.metric("Total Cost", f"${rdf['Cost'].sum():.2f}")
-                if st.button("Clear"):
+                st.metric("Total Recipe Cost", f"${rdf['Cost'].sum():.2f}")
+                if st.button("Clear Recipe"):
                     st.session_state.recipe = []
                     st.rerun()
+        else:
+            st.warning("You must add ingredients to the 'Ingredients' tab before you can calculate recipe costs.")
 
 # 🗄️ DOCUMENT VAULT
 elif menu_choice == "🗄️ Document Vault":
