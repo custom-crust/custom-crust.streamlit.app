@@ -98,7 +98,7 @@ st.markdown("""
         gap: 12px;
     }
     [data-testid="stSidebar"] label[data-baseweb="radio"] {
-        background: rgba(22, 22, 22, 0.8); /* Semi-transparent to show dots */
+        background: rgba(22, 22, 22, 0.8); /* Semi-transparent */
         backdrop-filter: blur(5px);
         border: 1px solid #333;
         border-radius: 8px;
@@ -112,7 +112,7 @@ st.markdown("""
         border-color: #FF4B4B;
         background: #1e1e1e;
         color: #fff;
-        transform: scale(1.02); /* Subtle pop */
+        transform: scale(1.02);
     }
 
     /* 5. DASHBOARD METRIC CARDS */
@@ -169,8 +169,8 @@ def get_df_robust(sheet_obj):
         return pd.DataFrame()
 
 # --- 5. SIDEBAR NAVIGATION ---
-# Custom Glowing Logo (Stacked with <br>)
-st.sidebar.markdown('<p class="sidebar-logo">CUSTOM CRUST<br>HQ 🍕</p>', unsafe_allow_html=True)
+# Custom Glowing Logo (Bookended with Pizza)
+st.sidebar.markdown('<p class="sidebar-logo">🍕 CUSTOM CRUST<br>HQ 🍕</p>', unsafe_allow_html=True)
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**COMMAND CENTER**") 
