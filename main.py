@@ -8,18 +8,34 @@ from google.oauth2.service_account import Credentials
 # --- 1. SETUP PAGE CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", page_icon="🍕", layout="wide")
 
-# --- 2. CONNECT TO GOOGLE SHEETS ---
+
+# --- 2. CONNECT TO GOOGLE SHEETS (Smart Auth) ---
 @st.cache_resource
 def connect_to_gsheets():
-    # Define the scope
-    scope = ["https://www.googleapis.com/auth/spreadsheets","https://www.googleapis.com/auth/drive"]
-    # Load credentials from Streamlit secrets
-    creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"],scopes=scope)
-    # Authorize gspread
+    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    
+    # Try to find the secret key (UPPERCASE matching user screenshot)
+    if "GCP_SERVICE_ACCOUNT" in st.secrets:
+        creds_dict = st.secrets["GCP_SERVICE_ACCOUNT"]
+    elif "gcp_service_account" in st.secrets:
+        creds_dict = st.secrets["gcp_service_account"]
+    elif "gsheets" in st.secrets:
+        creds_dict = st.secrets["gsheets"]
+    else:
+        st.error("🚨 Secrets Error: Could not find 'GCP_SERVICE_ACCOUNT' in your secrets.")
+        st.stop()
+    
+    # Create Credentials
+    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
+    
     # Open the sheet
-    sheet = client.open("Custom Crust Kitchen - Master Ledger")
-    return sheet
+    try:
+        sheet = client.open("Custom Crust Kitchen - Master Ledger")
+        return sheet
+    except Exception as e:
+        st.error(f"🚨 Sheet Error: Could not open 'Custom Crust Kitchen - Master Ledger'. Check permissions. {e}")
+        st.stop()
 
 try:
     sheet = connect_to_gsheets()
