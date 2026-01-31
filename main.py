@@ -65,40 +65,40 @@ vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Da
 # --- 3. CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* 1. Main Background & Sidebar Background (Unified Texture) */
+    /* 1. Main Background & Sidebar */
     .stApp, [data-testid="stSidebar"] {
         background-color: #0e0e0e;
         background-image: radial-gradient(#262626 1px, transparent 0);
         background-size: 20px 20px;
     }
-    
-    /* 2. Sidebar Border */
-    [data-testid="stSidebar"] {
-        border-right: 1px solid #333;
-    }
+    [data-testid="stSidebar"] { border-right: 1px solid #333; }
 
-    /* 3. NEON LOGO (Stacked & Centered) */
+    /* 2. INTENSE NEON LOGO (Stacked & Centered) */
     .sidebar-logo {
         font-family: 'Arial Black', sans-serif;
         font-size: 24px !important;
         line-height: 1.2;
         text-transform: uppercase;
         color: #fff;
-        text-align: center;  /* Centered alignment */
+        text-align: center;
         margin-bottom: 25px;
         margin-top: 10px;
-        text-shadow: 0 0 15px rgba(255, 75, 75, 0.6);
+        /* Stronger Glow Effect */
+        text-shadow: 
+            0 0 10px rgba(255, 75, 75, 0.9), 
+            0 0 20px rgba(255, 75, 75, 0.6), 
+            0 0 30px rgba(255, 75, 75, 0.4);
         letter-spacing: 1px;
     }
     
-    /* 4. BOXY SIDEBAR BUTTONS */
+    /* 3. BOXY SIDEBAR BUTTONS */
     [data-testid="stSidebar"] div[role="radiogroup"] {
         display: flex;
         flex-direction: column;
         gap: 12px;
     }
     [data-testid="stSidebar"] label[data-baseweb="radio"] {
-        background: rgba(22, 22, 22, 0.8); /* Semi-transparent */
+        background: rgba(22, 22, 22, 0.8);
         backdrop-filter: blur(5px);
         border: 1px solid #333;
         border-radius: 8px;
@@ -115,7 +115,7 @@ st.markdown("""
         transform: scale(1.02);
     }
 
-    /* 5. DASHBOARD METRIC CARDS */
+    /* 4. DASHBOARD METRIC CARDS */
     [data-testid="stMetric"] {
         background: rgba(22, 22, 22, 0.8);
         backdrop-filter: blur(5px);
@@ -128,12 +128,12 @@ st.markdown("""
     [data-testid="stMetricLabel"] { color: #888 !important; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
     [data-testid="stMetricValue"] { color: #fff !important; font-size: 26px; font-weight: 700; }
     
-    /* 6. General Text */
+    /* 5. General Text */
     h1, h2, h3 { color: #fff !important; }
     p, span, div { color: #ccc; }
     hr { border: 0; height: 1px; background: #333; margin: 20px 0; }
     
-    /* 7. Center the 'Command Center' Label */
+    /* 6. Center 'Command Center' Label */
     .st-emotion-cache-16idsys p {
         text-align: center;
         width: 100%;
@@ -174,8 +174,20 @@ st.sidebar.markdown('<p class="sidebar-logo">🍕 CUSTOM CRUST<br>HQ 🍕</p>', 
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("**COMMAND CENTER**") 
+
+# Reordered Menu for Logical Workflow
 menu_choice = st.sidebar.radio("Navigation", 
-    ["📊 Dashboard", "🏦 Assets & Debt", "🍳 Recipe Costing", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"], label_visibility="collapsed")
+    [
+        "📊 Dashboard", 
+        "💰 Sales & Revenue", 
+        "📝 Log Expenses", 
+        "🏦 Assets & Debt", 
+        "🍕 Menu Editor",
+        "🍳 Recipe Costing", 
+        "🗄️ Document Vault"
+    ], 
+    label_visibility="collapsed"
+)
 st.sidebar.markdown("---")
 
 # --- 6. PAGE LOGIC ---
