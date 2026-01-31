@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 import gspread
 from google.oauth2.service_account import Credentials
+import datetime
 
 # --- 1. SETUP PAGE CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", page_icon="🍕", layout="wide")
@@ -14,7 +15,7 @@ st.set_page_config(page_title="Custom Crust HQ", page_icon="🍕", layout="wide"
 def connect_to_gsheets():
     scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     
-    # Try to find the secret key (UPPERCASE matching user screenshot)
+    # Try multiple secret keys (Lowercase vs Uppercase)
     if "GCP_SERVICE_ACCOUNT" in st.secrets:
         creds_dict = st.secrets["GCP_SERVICE_ACCOUNT"]
     elif "gcp_service_account" in st.secrets:
@@ -22,50 +23,44 @@ def connect_to_gsheets():
     elif "gsheets" in st.secrets:
         creds_dict = st.secrets["gsheets"]
     else:
-        st.error("🚨 Secrets Error: Could not find 'GCP_SERVICE_ACCOUNT' in your secrets.")
+        st.error("🚨 Secrets Error: Could not find 'GCP_SERVICE_ACCOUNT' in secrets.")
         st.stop()
     
-    # Create Credentials
     creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
     client = gspread.authorize(creds)
     
-    # Open the sheet
     try:
         sheet = client.open("Custom Crust Kitchen - Master Ledger")
         return sheet
     except Exception as e:
-        st.error(f"🚨 Sheet Error: Could not open 'Custom Crust Kitchen - Master Ledger'. Check permissions. {e}")
+        st.error(f"🚨 Connection Error: {e}")
         st.stop()
 
-try:
-    sheet = connect_to_gsheets()
-except Exception as e:
-    st.error(f"🚨 Connection Error: {e}")
-    st.stop()
+sheet = connect_to_gsheets()
 
-# Helper: Get Worksheet or Create if Missing
+# Helper: Get Worksheet
 def get_worksheet(name, headers):
     try:
         return sheet.worksheet(name)
     except:
-        # If tab missing, create it
         ws = sheet.add_worksheet(title=name, rows=100, cols=20)
         ws.append_row(headers)
         return ws
 
-# Load Your Tabs
+# Load Tabs (Added 'Planner')
 ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date"])
 sales_sheet = get_worksheet("Sales", ["Event", "Type", "Revenue", "Date"])
 assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Balance", "Last Updated"])
 debt_sheet = get_worksheet("Debt_Log", ["Loan Name", "Transaction Type", "Amount", "Date"])
-ing_sheet = get_worksheet("Ingredients", ["Item Name", "Bulk Unit (e.g. 50lb)", "Bulk Cost", "Unit Cost"])
+planner_sheet = get_worksheet("Planner", ["Event Name", "Date", "Projected Revenue", "Status"])
 menu_sheet = get_worksheet("Menu", ["Item Name", "Description", "Price", "Category"])
+ing_sheet = get_worksheet("Ingredients", ["Item Name", "Bulk Unit", "Bulk Cost", "Unit Cost"])
 vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Date"])
 
-# --- 3. CUSTOM CSS ---
+# --- 3. CUSTOM CSS (FINAL EXECUTIVE THEME) ---
 st.markdown("""
 <style>
-    /* 1. Main Background & Sidebar */
+    /* Main Background */
     .stApp, [data-testid="stSidebar"] {
         background-color: #0e0e0e;
         background-image: radial-gradient(#262626 1px, transparent 0);
@@ -73,7 +68,7 @@ st.markdown("""
     }
     [data-testid="stSidebar"] { border-right: 1px solid #333; }
 
-    /* 2. INTENSE NEON LOGO (Stacked & Centered) */
+    /* NEON LOGO */
     .sidebar-logo {
         font-family: 'Arial Black', sans-serif;
         font-size: 24px !important;
@@ -83,39 +78,28 @@ st.markdown("""
         text-align: center;
         margin-bottom: 25px;
         margin-top: 10px;
-        /* Stronger Glow Effect */
-        text-shadow: 
-            0 0 10px rgba(255, 75, 75, 0.9), 
-            0 0 20px rgba(255, 75, 75, 0.6), 
-            0 0 30px rgba(255, 75, 75, 0.4);
+        text-shadow: 0 0 10px rgba(255, 75, 75, 0.9), 0 0 20px rgba(255, 75, 75, 0.6);
         letter-spacing: 1px;
     }
     
-    /* 3. BOXY SIDEBAR BUTTONS */
-    [data-testid="stSidebar"] div[role="radiogroup"] {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
+    /* BOXY BUTTONS */
+    [data-testid="stSidebar"] div[role="radiogroup"] { display: flex; flex-direction: column; gap: 12px; }
     [data-testid="stSidebar"] label[data-baseweb="radio"] {
         background: rgba(22, 22, 22, 0.8);
         backdrop-filter: blur(5px);
         border: 1px solid #333;
         border-radius: 8px;
         padding: 15px;
-        margin-bottom: 0px !important;
-        transition: all 0.2s ease;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         color: #aaa;
+        margin-bottom: 0px !important;
+        transition: all 0.2s ease;
     }
     [data-testid="stSidebar"] label[data-baseweb="radio"]:hover {
-        border-color: #FF4B4B;
-        background: #1e1e1e;
-        color: #fff;
-        transform: scale(1.02);
+        border-color: #FF4B4B; background: #1e1e1e; color: #fff; transform: scale(1.02);
     }
 
-    /* 4. DASHBOARD METRIC CARDS */
+    /* METRIC CARDS */
     [data-testid="stMetric"] {
         background: rgba(22, 22, 22, 0.8);
         backdrop-filter: blur(5px);
@@ -128,27 +112,15 @@ st.markdown("""
     [data-testid="stMetricLabel"] { color: #888 !important; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
     [data-testid="stMetricValue"] { color: #fff !important; font-size: 26px; font-weight: 700; }
     
-    /* 5. General Text */
     h1, h2, h3 { color: #fff !important; }
     p, span, div { color: #ccc; }
     hr { border: 0; height: 1px; background: #333; margin: 20px 0; }
-    
-    /* 6. Center 'Command Center' Label */
-    .st-emotion-cache-16idsys p {
-        text-align: center;
-        width: 100%;
-        color: #666 !important;
-        font-size: 10px;
-        letter-spacing: 2px;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }
+    .st-emotion-cache-16idsys p { text-align: center; width: 100%; color: #666 !important; font-size: 10px; letter-spacing: 2px; font-weight: 700; margin-bottom: 10px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 4. GLOBAL HELPER FUNCTIONS ---
+# --- 4. GLOBAL HELPERS ---
 def clean_money(val):
-    """Converts '$17,000.00' string to 17000.0 float"""
     if isinstance(val, (int, float)): return float(val)
     if isinstance(val, str):
         clean = val.replace('$', '').replace(',', '').strip()
@@ -158,72 +130,60 @@ def clean_money(val):
     return 0.0
 
 def get_df_robust(sheet_obj):
-    """Loads sheet data safely, fixing headers"""
     try:
         data = sheet_obj.get_all_values()
         if len(data) < 2: return pd.DataFrame()
-        # Clean headers: Title Case and Strip Whitespace
         headers = [str(h).strip().title() for h in data[0]]
         return pd.DataFrame(data[1:], columns=headers)
-    except:
-        return pd.DataFrame()
+    except: return pd.DataFrame()
 
 # --- 5. SIDEBAR NAVIGATION ---
-# Custom Glowing Logo (Bookended with Pizza)
 st.sidebar.markdown('<p class="sidebar-logo">🍕 CUSTOM CRUST<br>HQ 🍕</p>', unsafe_allow_html=True)
-
 st.sidebar.markdown("---")
 st.sidebar.markdown("**COMMAND CENTER**") 
-
-# Reordered Menu for Logical Workflow
 menu_choice = st.sidebar.radio("Navigation", 
     [
         "📊 Dashboard", 
+        "📅 Planner & Projections",
         "💰 Sales & Revenue", 
         "📝 Log Expenses", 
         "🏦 Assets & Debt", 
         "🍕 Menu Editor",
         "🍳 Recipe Costing", 
         "🗄️ Document Vault"
-    ], 
-    label_visibility="collapsed"
+    ], label_visibility="collapsed"
 )
 st.sidebar.markdown("---")
 
 # --- 6. PAGE LOGIC ---
 
-
-# 📊 DASHBOARD (Executive Layout)
+# 📊 DASHBOARD
 if menu_choice == "📊 Dashboard":
     st.title("🚀 Business Command Center")
-    st.markdown("###") # Spacer
+    st.markdown("###")
     
-    # 1. LOAD DATA
+    # Load All Data
     df_exp = get_df_robust(ledger_sheet)
     df_sales = get_df_robust(sales_sheet)
     df_assets = get_df_robust(assets_sheet)
     df_debt = get_df_robust(debt_sheet)
 
-    # 2. CALCULATE METRICS
-    # Expenses
+    # Calculate Totals
     total_exp = 0.0
     if not df_exp.empty and "Cost" in df_exp.columns:
         df_exp["Clean_Cost"] = df_exp["Cost"].apply(clean_money)
         total_exp = df_exp["Clean_Cost"].sum()
 
-    # Sales
     total_rev = 0.0
     if not df_sales.empty and "Revenue" in df_sales.columns:
         df_sales["Clean_Rev"] = df_sales["Revenue"].apply(clean_money)
         total_rev = df_sales["Clean_Rev"].sum()
 
-    # Assets
     total_assets = 0.0
     if not df_assets.empty and "Balance" in df_assets.columns:
         df_assets["Clean_Bal"] = df_assets["Balance"].apply(clean_money)
         total_assets = df_assets["Clean_Bal"].sum()
 
-    # Debt
     total_debt = 0.0
     if not df_debt.empty and "Amount" in df_debt.columns:
         df_debt["Clean_Amt"] = df_debt["Amount"].apply(clean_money)
@@ -234,319 +194,283 @@ if menu_choice == "📊 Dashboard":
             repaid = df_debt[df_debt["Norm_Type"].str.contains("repay")]["Clean_Amt"].sum()
             total_debt = borrowed - repaid
 
-    # 3. DISPLAY KEY METRICS (Top Row)
+    # Top Metrics
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("💰 Total Revenue", f"${total_rev:,.0f}")
     c2.metric("💸 Total Expenses", f"${total_exp:,.0f}")
-    
-    net_profit = total_rev - total_exp
-    c3.metric("📈 Net Profit", f"${net_profit:,.0f}", delta=net_profit)
-    
-    net_worth = total_assets - total_debt
-    c4.metric("🏛️ Business Equity", f"${net_worth:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
+    c3.metric("📈 Net Profit", f"${total_rev - total_exp:,.0f}", delta=total_rev - total_exp)
+    c4.metric("🏛️ Business Equity", f"${total_assets - total_debt:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
 
     st.markdown("---")
 
-    # 4. OPERATIONS ZONE (Pie Charts)
+    # Middle Zone: Operations
     st.subheader("📊 Operational Performance")
-    col_op1, col_op2 = st.columns(2)
+    c_op1, c_op2 = st.columns(2)
     
-    # Chart 1: Revenue Breakdown (Sales by Type)
-    with col_op1:
-        st.caption("Where is the money coming from?")
+    with c_op1:
+        st.caption("Revenue Sources")
         if total_rev > 0 and "Type" in df_sales.columns:
-            # Aggregate by Type to avoid messy charts
-            sales_by_type = df_sales.groupby("Type")["Clean_Rev"].sum().reset_index()
-            fig_sales = px.pie(sales_by_type, values="Clean_Rev", names="Type", 
-                               color_discrete_sequence=px.colors.qualitative.Pastel,
-                               hole=0.5)
-            fig_sales.update_layout(showlegend=True, margin=dict(t=0, b=0, l=0, r=0), 
-                                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                    font=dict(color="white"))
-            st.plotly_chart(fig_sales, use_container_width=True)
-        else:
-            st.info("No sales data yet.")
+            fig = px.pie(df_sales, values="Clean_Rev", names="Type", hole=0.5, color_discrete_sequence=px.colors.qualitative.Pastel)
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
+            st.plotly_chart(fig, use_container_width=True)
+        else: st.info("No sales data.")
 
-    # Chart 2: Expense Breakdown (Spending by Category)
-    with col_op2:
-        st.caption("Where is the money going?")
+    with c_op2:
+        st.caption("Expense Breakdown")
         if total_exp > 0 and "Category" in df_exp.columns:
-            # Aggregate by Category
-            exp_by_cat = df_exp.groupby("Category")["Clean_Cost"].sum().reset_index()
-            fig_exp = px.pie(exp_by_cat, values="Clean_Cost", names="Category", 
-                             color_discrete_sequence=px.colors.qualitative.Vivid,
-                             hole=0.5)
-            fig_exp.update_layout(showlegend=True, margin=dict(t=0, b=0, l=0, r=0),
-                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                  font=dict(color="white"))
-            st.plotly_chart(fig_exp, use_container_width=True)
-        else:
-            st.info("No expense data yet.")
+            fig = px.pie(df_exp, values="Clean_Cost", names="Category", hole=0.5, color_discrete_sequence=px.colors.qualitative.Vivid)
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
+            st.plotly_chart(fig, use_container_width=True)
+        else: st.info("No expense data.")
 
+# 📅 PLANNER & PROJECTIONS (NEW)
+elif menu_choice == "📅 Planner & Projections":
+    st.header("Future Event Planner")
+    
+    # 1. Load Data
+    df_plan = get_df_robust(planner_sheet)
+    df_sales = get_df_robust(sales_sheet) # Needed for "Actuals"
+    
+    # 2. Input Form
+    with st.expander("➕ Add Upcoming Event / Catering Gig", expanded=True):
+        with st.form("planner_form", clear_on_submit=True):
+            c1, c2, c3 = st.columns(3)
+            evt_name = c1.text_input("Event Name")
+            evt_date = c2.date_input("Date")
+            evt_rev = c3.number_input("Projected Revenue ($)", min_value=0.0)
+            status = st.selectbox("Status", ["Confirmed", "Tentative", "Lead"])
+            
+            if st.form_submit_button("Add Event"):
+                planner_sheet.append_row([evt_name, str(evt_date), evt_rev, status])
+                st.success("Event Added!")
+                st.rerun()
+    
+    # 3. Process Data for Charting
+    total_proj = 0.0
+    combined_data = []
+
+    # Get Projected
+    if not df_plan.empty:
+        df_plan["Projected Revenue"] = df_plan["Projected Revenue"].apply(clean_money)
+        df_plan["Date"] = pd.to_datetime(df_plan["Date"], errors="coerce")
+        df_plan["Month"] = df_plan["Date"].dt.strftime("%Y-%m")
+        total_proj = df_plan["Projected Revenue"].sum()
+        
+        # Group by Month
+        proj_grouped = df_plan.groupby("Month")["Projected Revenue"].sum().reset_index()
+        proj_grouped["Type"] = "Projected"
+        proj_grouped.rename(columns={"Projected Revenue": "Amount"}, inplace=True)
+        combined_data.append(proj_grouped)
+
+    # Get Actuals (from Sales)
+    if not df_sales.empty:
+        df_sales["Revenue"] = df_sales["Revenue"].apply(clean_money)
+        df_sales["Date"] = pd.to_datetime(df_sales["Date"], errors="coerce")
+        df_sales["Month"] = df_sales["Date"].dt.strftime("%Y-%m")
+        
+        act_grouped = df_sales.groupby("Month")["Revenue"].sum().reset_index()
+        act_grouped["Type"] = "Actual Sales"
+        act_grouped.rename(columns={"Revenue": "Amount"}, inplace=True)
+        combined_data.append(act_grouped)
+
+    # 4. Metrics & Chart
+    st.divider()
+    c1, c2 = st.columns([1, 2])
+    
+    with c1:
+        st.metric("🔮 Total Pipeline (Projected)", f"${total_proj:,.0f}")
+        st.caption("Upcoming Events:")
+        if not df_plan.empty:
+            st.dataframe(df_plan[["Event Name", "Date", "Projected Revenue", "Status"]], hide_index=True)
+        else:
+            st.info("No upcoming events logged.")
+
+    with c2:
+        st.subheader("📊 Actual vs. Projected Sales")
+        if combined_data:
+            final_df = pd.concat(combined_data)
+            fig = px.bar(final_df, x="Month", y="Amount", color="Type", barmode="group",
+                         color_discrete_map={"Actual Sales": "#00CC96", "Projected": "#636EFA"})
+            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("Log sales or events to see projections.")
+
+# 💰 SALES & REVENUE (Updated)
+elif menu_choice == "💰 Sales & Revenue":
+    st.header("Log Sales Revenue")
+    
+    df_sales = get_df_robust(sales_sheet)
+    mtd_rev, ytd_rev = 0.0, 0.0
+    
+    if not df_sales.empty:
+        df_sales["Clean_Rev"] = df_sales["Revenue"].apply(clean_money)
+        df_sales["Date_Obj"] = pd.to_datetime(df_sales["Date"], errors="coerce")
+        now = pd.Timestamp.now()
+        mtd_rev = df_sales[(df_sales["Date_Obj"].dt.month == now.month) & (df_sales["Date_Obj"].dt.year == now.year)]["Clean_Rev"].sum()
+        ytd_rev = df_sales[df_sales["Date_Obj"].dt.year == now.year]["Clean_Rev"].sum()
+
+    c1, c2 = st.columns(2)
+    c1.metric("💰 MTD Sales", f"${mtd_rev:,.2f}")
+    c2.metric("🚀 YTD Sales", f"${ytd_rev:,.2f}")
     st.markdown("---")
 
-    # 5. FINANCIAL HEALTH & RECENT ACTIVITY
-    st.subheader("⚖️ Financial Position")
-    col_fin1, col_fin2 = st.columns([1, 1])
-
-    # Chart 3: Assets vs Debt
-    with col_fin1:
-        st.caption("Balance Sheet Snapshot")
-        if total_assets > 0 or total_debt > 0:
-            ad_data = pd.DataFrame({
-                "Category": ["Assets", "Liabilities"],
-                "Amount": [total_assets, total_debt],
-                "Color": ["#00CC96", "#FF4B4B"]
-            })
-            fig_bal = px.bar(ad_data, x="Category", y="Amount", color="Category", 
-                             color_discrete_map={"Assets": "#00CC96", "Liabilities": "#FF4B4B"},
-                             text_auto='.2s')
-            fig_bal.update_layout(showlegend=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                  font=dict(color="white"), margin=dict(t=10, b=10, l=0, r=0))
-            st.plotly_chart(fig_bal, use_container_width=True)
-        else:
-            st.info("No assets/debt logged.")
-
-    # Table: Recent Transactions (At a Glance)
-    with col_fin2:
-        st.caption("Recent Expenses (Last 5)")
-        if not df_exp.empty:
-            # Show last 5 rows, minimal columns
-            recent_exp = df_exp.tail(5)[["Item", "Cost", "Date"]]
-            st.dataframe(recent_exp, hide_index=True, use_container_width=True)
-        else:
-            st.info("No recent activity.")
-
-# 🏦 ASSETS & DEBT MANAGER
-elif menu_choice == "🏦 Assets & Debt":
-    st.header("Assets & Liability Tracker")
-    tab_debt, tab_assets = st.tabs(["📉 Manage Debt", "💵 Manage Assets"])
-    # DEBT TAB
-    with tab_debt:
-        st.subheader("Loan Repayment Tracker")
-        with st.form("debt_form", clear_on_submit=True):
-            c1, c2 = st.columns(2)
-            loan_name = c1.text_input("Creditor Name", value="Business Loan")
-            trans_type = c2.selectbox("Action", ["Repayment", "Borrow"])
-            amount = st.number_input("Amount ($)", min_value=0.01)
-            date = st.date_input("Date")
-            if st.form_submit_button("Update Loan Balance"):
-                debt_sheet.append_row([loan_name, trans_type, amount, str(date)])
-                st.success("Transaction Logged!")
-                st.rerun()
-        # Show Debt Cards
-        try:
-            debts = get_df_robust(debt_sheet)
-            if not debts.empty and "Amount" in debts.columns:
-                debts['Clean_Amt'] = debts['Amount'].apply(clean_money)
-                for loan in debts['Loan Name'].unique():
-                    subset = debts[debts['Loan Name'] == loan]
-                    # Find type col
-                    t_col = next((c for c in subset.columns if "Type" in c), None)
-                    if t_col:
-                        subset['Norm_Type'] = subset[t_col].astype(str).str.lower()
-                        borrowed = subset[subset['Norm_Type'].str.contains('borrow')]['Clean_Amt'].sum()
-                        repaid = subset[subset['Norm_Type'].str.contains('repay')]['Clean_Amt'].sum()
-                        balance = borrowed - repaid
-                        st.divider()
-                        st.write(f"**{loan}**")
-                        k1, k2, k3 = st.columns(3)
-                        k1.metric("Original Loan", f"${borrowed:,.0f}")
-                        k2.metric("Paid Off", f"${repaid:,.0f}")
-                        k3.metric("Remaining Balance", f"${balance:,.0f}", delta=-balance)
-        except Exception as e:
-            st.error(f"Error loading debt: {e}")
-    # ASSETS TAB
-    with tab_assets:
-        st.subheader("Bank Accounts & Credit Limits")
-        st.info("📝 Tip: Edit the balances below and click 'Save'.")
-        # Load Existing Or Default
-        assets_df = get_df_robust(assets_sheet)
-        if assets_df.empty:
-            default_data = [
-                {"Account Name": "Business Checking", "Type": "Cash", "Balance": 0, "Last Updated": str(pd.Timestamp.now().date())},
-                {"Account Name": "Savings / Reserve", "Type": "Cash", "Balance": 0, "Last Updated": str(pd.Timestamp.now().date())},
-                {"Account Name": "Credit Card Limit", "Type": "Credit", "Balance": 10000, "Last Updated": str(pd.Timestamp.now().date())}
-            ]
-            assets_df = pd.DataFrame(default_data)
-        edited_assets = st.data_editor(
-            assets_df, 
-            num_rows="dynamic",
-            use_container_width=True,
-            column_config={
-                "Balance": st.column_config.NumberColumn("Balance ($)", format="$%d"),
-                "Type": st.column_config.SelectboxColumn("Type", options=["Cash", "Credit", "Investment", "Fixed Asset (Trailer/Oven)"])
-            }
-        )
-        if st.button("Save Asset Balances"):
-            assets_sheet.clear()
-            assets_sheet.append_row(["Account Name", "Type", "Balance", "Last Updated"])
-            if not edited_assets.empty:
-                assets_sheet.append_rows(edited_assets.values.tolist())
-            st.success("✅ Balances Updated!")
+    with st.form("sales_form", clear_on_submit=True):
+        c1, c2 = st.columns(2)
+        event = c1.text_input("Event Name")
+        s_type = c2.selectbox("Type", ["Festival/Event", "Catering", "Private Party", "Daily Service"])
+        rev = st.number_input("Total Revenue ($)", min_value=0.01)
+        date = st.date_input("Date")
+        if st.form_submit_button("Log Sales"):
+            sales_sheet.append_row([event, s_type, rev, str(date)])
+            st.success("✅ Sales Logged!")
             st.rerun()
-# 🍳 RECIPE COSTING
-elif menu_choice == "🍳 Recipe Costing":
-    st.header("Recipe & Food Cost Calculator")
-    tab_pantry, tab_calc = st.tabs(["🥕 Ingredient Pantry", "🧮 Pizza Builder"])
-    with tab_pantry:
-        st.subheader("Manage Raw Ingredients")
-        with st.form("ing_form", clear_on_submit=True):
-            c1, c2, c3 = st.columns(3)
-            name = c1.text_input("Ingredient Name")
-            unit = c2.text_input("Unit (e.g. lb, oz)")
-            cost = c3.number_input("Cost ($)", min_value=0.01)
-            if st.form_submit_button("Add to Pantry"):
-                ing_sheet.append_row([name, unit, cost, cost])
-                st.success(f"Added {name}")
-                st.rerun()
-        ing_df = get_df_robust(ing_sheet)
-        if not ing_df.empty:
-            st.dataframe(ing_df, use_container_width=True)
-    with tab_calc:
-        st.subheader("Price Your Pizza")
-        ing_df = get_df_robust(ing_sheet)
-        if ing_df.empty:
-            st.warning("Add ingredients to pantry first.")
-        else:
-            if "recipe_items" not in st.session_state: st.session_state.recipe_items = []
-            c1, c2, c3 = st.columns([2, 1, 1])
-            sel_ing = c1.selectbox("Select Ingredient", ing_df["Item Name"].tolist())
-            qty = c2.number_input("Qty", 1.0)
-            if c3.button("Add"):
-                row = ing_df[ing_df["Item Name"] == sel_ing].iloc[0]
-                cost_val = clean_money(str(row.get("Unit Cost", 0)))
-                st.session_state.recipe_items.append({"Ingredient": sel_ing, "Qty": qty, "Cost": cost_val * qty})
-            if st.session_state.recipe_items:
-                r_df = pd.DataFrame(st.session_state.recipe_items)
-                st.dataframe(r_df)
-                st.metric("Total Cost", f"${r_df['Cost'].sum():.2f}")
-                if st.button("Clear Recipe"):
-                    st.session_state.recipe_items = []
-                    st.rerun()
-# 📝 LOG EXPENSES
+            
+    if not df_sales.empty:
+        st.subheader("🕒 Recent Sales")
+        st.dataframe(df_sales.tail(5).iloc[::-1][["Event", "Type", "Revenue", "Date"]], use_container_width=True, hide_index=True)
+
+# 📝 LOG EXPENSES (Updated)
 elif menu_choice == "📝 Log Expenses":
     st.header("Log Business Expenses")
     
-    # 1. LOAD & CALCULATE METRICS
     df_exp = get_df_robust(ledger_sheet)
-    mtd_exp = 0.0
-    ytd_exp = 0.0
+    mtd_exp, ytd_exp = 0.0, 0.0
     
-    if not df_exp.empty and "Cost" in df_exp.columns:
-        # Process dates and costs
+    if not df_exp.empty:
         df_exp["Clean_Cost"] = df_exp["Cost"].apply(clean_money)
         df_exp["Date_Obj"] = pd.to_datetime(df_exp["Date"], errors="coerce")
-        
         now = pd.Timestamp.now()
-        # MTD (Month to Date)
-        mtd_exp = df_exp[
-            (df_exp["Date_Obj"].dt.month == now.month) & 
-            (df_exp["Date_Obj"].dt.year == now.year)
-        ]["Clean_Cost"].sum()
-        
-        # YTD (Year to Date)
+        mtd_exp = df_exp[(df_exp["Date_Obj"].dt.month == now.month) & (df_exp["Date_Obj"].dt.year == now.year)]["Clean_Cost"].sum()
         ytd_exp = df_exp[df_exp["Date_Obj"].dt.year == now.year]["Clean_Cost"].sum()
 
-    # 2. DISPLAY BOXY METRICS
     c1, c2 = st.columns(2)
-    c1.metric("📅 Month-to-Date Expenses", f"${mtd_exp:,.2f}")
-    c2.metric("📆 Year-to-Date Expenses", f"${ytd_exp:,.2f}")
-    
+    c1.metric("📅 MTD Expenses", f"${mtd_exp:,.2f}")
+    c2.metric("📆 YTD Expenses", f"${ytd_exp:,.2f}")
     st.markdown("---")
 
-    # 3. INPUT FORM
     with st.form("expense_form", clear_on_submit=True):
         col1, col2 = st.columns(2)
-        item_name = col1.text_input("Item Name (e.g. Mozzarella 50lbs)")
+        item_name = col1.text_input("Item Name")
         category = col2.selectbox("Category", [
-            "Startup & Assets (Trailer, Truck, Ovens)",
-            "Inventory (Food & Drink)", "Equipment & Supplies", 
-            "Vehicle & Fuel", "Marketing & Ads", "Utilities", "Other"
+            "Startup & Assets (Trailer, Truck, Ovens)", "Inventory (Food & Drink)", 
+            "Equipment & Supplies", "Vehicle & Fuel", "Marketing & Ads", "Utilities", "Other"
         ])
         cost = st.number_input("Cost ($)", min_value=0.01)
         date = st.date_input("Date")
-        
         if st.form_submit_button("Add Expense"):
             ledger_sheet.append_row([item_name, category, cost, str(date)])
             st.success("✅ Expense Logged!")
             st.rerun()
 
-    # 4. RECENT HISTORY TABLE
-    st.subheader("🕒 Recent Expenses")
     if not df_exp.empty:
-        # Show last 5 entries, sorted by most recent
-        recent = df_exp.tail(5).iloc[::-1] # Reverse order
-        st.dataframe(recent[["Item", "Category", "Cost", "Date"]], use_container_width=True, hide_index=True)
-# 💰 SALES & REVENUE
-elif menu_choice == "💰 Sales & Revenue":
-    st.header("Log Sales Revenue")
-    
-    # 1. LOAD & CALCULATE METRICS
-    df_sales = get_df_robust(sales_sheet)
-    mtd_rev = 0.0
-    ytd_rev = 0.0
-    
-    if not df_sales.empty and "Revenue" in df_sales.columns:
-        df_sales["Clean_Rev"] = df_sales["Revenue"].apply(clean_money)
-        df_sales["Date_Obj"] = pd.to_datetime(df_sales["Date"], errors="coerce")
-        
-        now = pd.Timestamp.now()
-        # MTD
-        mtd_rev = df_sales[
-            (df_sales["Date_Obj"].dt.month == now.month) & 
-            (df_sales["Date_Obj"].dt.year == now.year)
-        ]["Clean_Rev"].sum()
-        
-        # YTD
-        ytd_rev = df_sales[df_sales["Date_Obj"].dt.year == now.year]["Clean_Rev"].sum()
+        st.subheader("🕒 Recent Expenses")
+        st.dataframe(df_exp.tail(5).iloc[::-1][["Item", "Category", "Cost", "Date"]], use_container_width=True, hide_index=True)
 
-    # 2. DISPLAY BOXY METRICS
-    c1, c2 = st.columns(2)
-    c1.metric("💰 MTD Sales", f"${mtd_rev:,.2f}")
-    c2.metric("🚀 YTD Sales", f"${ytd_rev:,.2f}")
+# 🏦 ASSETS & DEBT
+elif menu_choice == "🏦 Assets & Debt":
+    st.header("Assets & Liability Tracker")
+    tab_debt, tab_assets = st.tabs(["📉 Manage Debt", "💵 Manage Assets"])
     
-    st.markdown("---")
-
-    # 3. INPUT FORM
-    with st.form("sales_form", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        event = c1.text_input("Event Name (e.g. Tuesday Lunch)")
-        s_type = c2.selectbox("Type", ["Festival/Event", "Catering", "Private Party", "Daily Service"])
-        rev = st.number_input("Total Revenue ($)", min_value=0.01)
-        date = st.date_input("Date")
+    with tab_debt:
+        st.subheader("Loan Repayment Tracker")
+        with st.form("debt_form"):
+            c1, c2 = st.columns(2)
+            loan_name = c1.text_input("Creditor Name", "Business Loan")
+            trans_type = c2.selectbox("Action", ["Repayment", "Borrow"])
+            amount = st.number_input("Amount ($)", min_value=0.01)
+            date = st.date_input("Date")
+            if st.form_submit_button("Update Loan"):
+                debt_sheet.append_row([loan_name, trans_type, amount, str(date)])
+                st.success("Logged!")
+                st.rerun()
         
-        if st.form_submit_button("Log Sales"):
-            sales_sheet.append_row([event, s_type, rev, str(date)])
-            st.success("✅ Sales Logged!")
+        debts = get_df_robust(debt_sheet)
+        if not debts.empty and "Amount" in debts.columns:
+            debts['Clean_Amt'] = debts['Amount'].apply(clean_money)
+            for loan in debts['Loan Name'].unique():
+                sub = debts[debts['Loan Name'] == loan]
+                t_col = next((c for c in sub.columns if "Type" in c), None)
+                if t_col:
+                    sub['Norm_Type'] = sub[t_col].astype(str).str.lower()
+                    bor = sub[sub['Norm_Type'].str.contains('borrow')]['Clean_Amt'].sum()
+                    rep = sub[sub['Norm_Type'].str.contains('repay')]['Clean_Amt'].sum()
+                    bal = bor - rep
+                    st.divider()
+                    st.write(f"**{loan}**")
+                    k1, k2, k3 = st.columns(3)
+                    k1.metric("Original", f"${bor:,.0f}")
+                    k2.metric("Paid", f"${rep:,.0f}")
+                    k3.metric("Remaining", f"${bal:,.0f}", delta=-bal)
+
+    with tab_assets:
+        st.subheader("Asset Balances")
+        assets_df = get_df_robust(assets_sheet)
+        if assets_df.empty: assets_df = pd.DataFrame([{"Account Name": "Biz Checking", "Type": "Cash", "Balance": 0, "Last Updated": str(pd.Timestamp.now().date())}])
+        
+        edited = st.data_editor(assets_df, num_rows="dynamic", use_container_width=True)
+        if st.button("Save Assets"):
+            assets_sheet.clear()
+            assets_sheet.append_row(["Account Name", "Type", "Balance", "Last Updated"])
+            if not edited.empty: assets_sheet.append_rows(edited.values.tolist())
+            st.success("Saved!")
             st.rerun()
 
-    # 4. RECENT HISTORY TABLE
-    st.subheader("🕒 Recent Sales")
-    if not df_sales.empty:
-        recent_sales = df_sales.tail(5).iloc[::-1]
-        st.dataframe(recent_sales[["Event", "Type", "Revenue", "Date"]], use_container_width=True, hide_index=True)
 # 🍕 MENU EDITOR
 elif menu_choice == "🍕 Menu Editor":
     st.header("Menu Management")
     menu_df = get_df_robust(menu_sheet)
     edited_menu = st.data_editor(menu_df, num_rows="dynamic", use_container_width=True)
-    if st.button("Save Menu Changes"):
+    if st.button("Save Menu"):
         menu_sheet.clear()
         menu_sheet.append_row(["Item Name", "Description", "Price", "Category"])
         menu_sheet.append_rows(edited_menu.values.tolist())
         st.success("Menu Updated!")
+
+# 🍳 RECIPE COSTING
+elif menu_choice == "🍳 Recipe Costing":
+    st.header("Recipe Calculator")
+    tab_pantry, tab_calc = st.tabs(["🥕 Ingredients", "🧮 Calculator"])
+    with tab_pantry:
+        with st.form("ing_form"):
+            c1, c2, c3 = st.columns(3)
+            name = c1.text_input("Name")
+            unit = c2.text_input("Unit")
+            cost = c3.number_input("Cost", min_value=0.01)
+            if st.form_submit_button("Add"):
+                ing_sheet.append_row([name, unit, cost, cost])
+                st.success("Added!")
+                st.rerun()
+        st.dataframe(get_df_robust(ing_sheet), use_container_width=True)
+    
+    with tab_calc:
+        ing_df = get_df_robust(ing_sheet)
+        if not ing_df.empty:
+            if "recipe" not in st.session_state: st.session_state.recipe = []
+            c1, c2, c3 = st.columns([2,1,1])
+            sel = c1.selectbox("Ingredient", ing_df["Item Name"])
+            qty = c2.number_input("Qty", 1.0)
+            if c3.button("Add"):
+                cost = clean_money(ing_df[ing_df["Item Name"] == sel].iloc[0].get("Unit Cost", 0))
+                st.session_state.recipe.append({"Item": sel, "Qty": qty, "Cost": cost * qty})
+            
+            if st.session_state.recipe:
+                rdf = pd.DataFrame(st.session_state.recipe)
+                st.dataframe(rdf)
+                st.metric("Total Cost", f"${rdf['Cost'].sum():.2f}")
+                if st.button("Clear"):
+                    st.session_state.recipe = []
+                    st.rerun()
+
 # 🗄️ DOCUMENT VAULT
 elif menu_choice == "🗄️ Document Vault":
     st.header("Document Vault")
-    with st.form("vault_form", clear_on_submit=True):
+    with st.form("vault"):
         c1, c2 = st.columns(2)
-        doc_name = c1.text_input("Document Name")
-        doc_link = c2.text_input("Google Drive Link")
-        doc_type = st.selectbox("Type", ["License/Permit", "Receipt/Invoice", "Contract", "Other"])
-        if st.form_submit_button("Save Document"):
-            vault_sheet.append_row([doc_name, doc_type, doc_link, str(pd.Timestamp.now().date())])
+        name = c1.text_input("Doc Name")
+        link = c2.text_input("Drive Link")
+        dtype = st.selectbox("Type", ["License", "Invoice", "Contract", "Other"])
+        if st.form_submit_button("Save"):
+            vault_sheet.append_row([name, dtype, link, str(pd.Timestamp.now().date())])
             st.success("Saved!")
-    vault_df = get_df_robust(vault_sheet)
-    if not vault_df.empty:
-        st.dataframe(vault_df, column_config={"Link": st.column_config.LinkColumn("Link")})
+    st.dataframe(get_df_robust(vault_sheet), column_config={"Link": st.column_config.LinkColumn("Link")})
