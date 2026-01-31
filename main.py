@@ -5,6 +5,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 import datetime
 import random
+import time
 
 # --- 1. SETUP PAGE CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", page_icon="🍕", layout="wide")
@@ -40,14 +41,22 @@ try:
 except:
     st.stop()
 
-# Helper: Get Worksheet
+# Helper: Get Worksheet (THE FIX)
 def get_worksheet(name, headers):
     try:
+        # Try to open the sheet
         return sheet.worksheet(name)
-    except:
+    except gspread.WorksheetNotFound:
+        # ONLY create if it truly doesn't exist
         ws = sheet.add_worksheet(title=name, rows=100, cols=20)
         ws.append_row(headers)
         return ws
+    except Exception as e:
+        # If it's a connection error, just stop and tell us (don't try to create)
+        st.warning(f"⚠️ Could not load '{name}'. Google API might be busy. Refreshing...")
+        time.sleep(1) # Wait a second
+        st.rerun() # Try again automatically
+        return None
 
 # Load Tabs
 ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date"])
