@@ -65,62 +65,90 @@ vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Da
 # --- 3. CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* Main Background */
+    /* 1. Main Background - subtle grid texture */
     .stApp {
         background-color: #0e0e0e;
-        background-image: radial-gradient(#333 1px, transparent 0);
-        background-size: 24px 24px;
+        background-image: radial-gradient(#262626 1px, transparent 0);
+        background-size: 20px 20px;
     }
     
-    /* Sidebar */
+    /* 2. Sidebar - Darker with right border */
     [data-testid="stSidebar"] {
         background-color: #0e0e0e;
         border-right: 1px solid #333;
     }
 
-    /* Metric Cards (Glassmorphism) */
+    /* 3. THE BOXY SIDEBAR BUTTONS (Restored) */
+    [data-testid="stSidebar"] div[role="radiogroup"] {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    /* Inactive Buttons */
+    [data-testid="stSidebar"] label[data-baseweb="radio"] {
+        background: #161616;
+        border: 1px solid #333;
+        border-radius: 8px;           /* Slightly rounded corners */
+        padding: 15px;                /* Big clickable area */
+        margin-bottom: 0px !important;
+        transition: all 0.2s ease;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        color: #888;
+    }
+    
+    /* Hover Effect */
+    [data-testid="stSidebar"] label[data-baseweb="radio"]:hover {
+        border-color: #FF4B4B;        /* Red Border on Hover */
+        background: #1e1e1e;
+        color: #fff;
+        transform: translateX(4px);
+    }
+    
+    /* Active/Selected Button */
+    [data-testid="stSidebar"] label[data-baseweb="radio"] [data-testid="stMarkdownContainer"] p {
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+
+    /* 4. DASHBOARD METRIC CARDS (Matching the Sidebar) */
     [data-testid="stMetric"] {
-        background: rgba(30, 30, 30, 0.5); /* Semi-transparent */
-        backdrop-filter: blur(10px);
-        border: 1px solid #444;
-        border-radius: 12px;
-        padding: 15px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        transition: transform 0.2s;
+        background: #161616;          /* Same dark grey as sidebar */
+        border: 1px solid #333;       /* Same border */
+        border-radius: 8px;           /* Same boxy shape */
+        padding: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
+    
     [data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        border-color: #FF4B4B;
+        border-color: #FF4B4B;        /* Red glow on hover */
     }
+
+    /* Metric Text Styling */
     [data-testid="stMetricLabel"] {
+        color: #888 !important;
         font-size: 12px;
         text-transform: uppercase;
         letter-spacing: 1px;
-        color: #aaa !important;
     }
     [data-testid="stMetricValue"] {
-        font-size: 24px;
-        font-weight: 700;
         color: #fff !important;
+        font-size: 26px;
+        font-weight: 700;
+        font-family: 'Helvetica Neue', sans-serif;
     }
 
-    /* Charts Container */
-    .chart-container {
-        background: #161616;
-        padding: 20px;
-        border-radius: 15px;
-        border: 1px solid #333;
-        margin-bottom: 20px;
-    }
+    /* 5. General Text */
+    h1, h2, h3 { color: #fff !important; }
+    p, span, div { color: #ccc; }
     
-    /* Text */
-    h1, h2, h3 { color: #fff !important; font-family: 'Helvetica Neue', sans-serif; }
-    p, span { color: #ccc !important; }
-    
-    /* Tables */
-    [data-testid="stDataFrame"] {
-        border: 1px solid #333;
-        border-radius: 10px;
+    /* 6. Dividers */
+    hr {
+        border: 0;
+        height: 1px;
+        background: #333;
+        margin: 20px 0;
     }
 </style>
 """, unsafe_allow_html=True)
