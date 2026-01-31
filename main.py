@@ -10,7 +10,7 @@ import io
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
 
-# --- CUSTOM CSS (ROBUST TEXTURE) ---
+# --- CUSTOM CSS (ROUNDED & ROBUST) ---
 st.markdown("""
 <style>
     /* 1. Main Background: Dark Mesh/Leather Texture */
@@ -20,26 +20,29 @@ st.markdown("""
         background-size: 20px 20px;
     }
     
-    /* 2. Sidebar: Robust 3px Border */
+    /* 2. Sidebar: Robust Border */
     [data-testid="stSidebar"] {
         background-color: #0e0e0e;
         background-image: radial-gradient(#262626 1px, transparent 0);
         background-size: 20px 20px;
-        border-right: 3px solid #333; /* Thicker, structural border */
+        border-right: 3px solid #333;
     }
-    /* 3. Metric Cards: Thicker 2px Border */
+    /* 3. Metric Cards: Rounded & Thick */
     [data-testid="stMetric"] {
         background: linear-gradient(145deg, #1e1e1e, #141414);
         padding: 15px 20px;
-        border-radius: 12px;
-        border: 2px solid #444; /* Lighter & thicker to pop */
+        border-radius: 15px; /* Rounder corners */
+        border: 2px solid #444;
         box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
     }
-    /* 4. Horizontal Dividers: Robust 3px Line */
+    /* 4. Horizontal Dividers: The "Capsule" Look */
     hr {
-        border-top: 3px solid #333 !important;
         margin-top: 30px;
         margin-bottom: 30px;
+        border: 0;          /* Remove default square border */
+        height: 5px;        /* Thicker */
+        background: #333;   /* Color */
+        border-radius: 5px; /* Rounded edges (Capsule shape) */
     }
     /* 5. Remove default Plotly white/black backgrounds */
     .js-plotly-plot .plotly .main-svg {
