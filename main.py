@@ -65,91 +65,70 @@ vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Da
 # --- 3. CUSTOM CSS ---
 st.markdown("""
 <style>
-    /* 1. Main Background - subtle grid texture */
+    /* 1. Main Background */
     .stApp {
         background-color: #0e0e0e;
         background-image: radial-gradient(#262626 1px, transparent 0);
         background-size: 20px 20px;
     }
     
-    /* 2. Sidebar - Darker with right border */
+    /* 2. Sidebar */
     [data-testid="stSidebar"] {
         background-color: #0e0e0e;
         border-right: 1px solid #333;
     }
 
-    /* 3. THE BOXY SIDEBAR BUTTONS (Restored) */
+    /* 3. NEON LOGO STYLE */
+    .sidebar-logo {
+        font-family: 'Arial Black', sans-serif;
+        font-size: 26px !important;
+        text-transform: uppercase;
+        color: #fff;
+        text-align: left;
+        margin-bottom: 20px;
+        text-shadow: 0 0 10px rgba(255, 75, 75, 0.8), 0 0 20px rgba(255, 75, 75, 0.4);
+        letter-spacing: 1px;
+    }
+    
+    /* 4. BOXY SIDEBAR BUTTONS */
     [data-testid="stSidebar"] div[role="radiogroup"] {
         display: flex;
         flex-direction: column;
         gap: 10px;
     }
-    
-    /* Inactive Buttons */
     [data-testid="stSidebar"] label[data-baseweb="radio"] {
         background: #161616;
         border: 1px solid #333;
-        border-radius: 8px;           /* Slightly rounded corners */
-        padding: 15px;                /* Big clickable area */
+        border-radius: 8px;
+        padding: 15px;
         margin-bottom: 0px !important;
         transition: all 0.2s ease;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         color: #888;
     }
-    
-    /* Hover Effect */
     [data-testid="stSidebar"] label[data-baseweb="radio"]:hover {
-        border-color: #FF4B4B;        /* Red Border on Hover */
+        border-color: #FF4B4B;
         background: #1e1e1e;
         color: #fff;
         transform: translateX(4px);
     }
-    
-    /* Active/Selected Button */
-    [data-testid="stSidebar"] label[data-baseweb="radio"] [data-testid="stMarkdownContainer"] p {
-        font-size: 14px;
-        font-weight: 500;
-        letter-spacing: 0.5px;
-    }
 
-    /* 4. DASHBOARD METRIC CARDS (Matching the Sidebar) */
+    /* 5. DASHBOARD METRIC CARDS */
     [data-testid="stMetric"] {
-        background: #161616;          /* Same dark grey as sidebar */
-        border: 1px solid #333;       /* Same border */
-        border-radius: 8px;           /* Same boxy shape */
+        background: #161616;
+        border: 1px solid #333;
+        border-radius: 8px;
         padding: 20px;
         box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
+    [data-testid="stMetric"]:hover { border-color: #FF4B4B; }
+    [data-testid="stMetricLabel"] { color: #888 !important; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+    [data-testid="stMetricValue"] { color: #fff !important; font-size: 26px; font-weight: 700; }
     
-    [data-testid="stMetric"]:hover {
-        border-color: #FF4B4B;        /* Red glow on hover */
-    }
-
-    /* Metric Text Styling */
-    [data-testid="stMetricLabel"] {
-        color: #888 !important;
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-    [data-testid="stMetricValue"] {
-        color: #fff !important;
-        font-size: 26px;
-        font-weight: 700;
-        font-family: 'Helvetica Neue', sans-serif;
-    }
-
-    /* 5. General Text */
+    /* 6. General */
     h1, h2, h3 { color: #fff !important; }
     p, span, div { color: #ccc; }
-    
-    /* 6. Dividers */
-    hr {
-        border: 0;
-        height: 1px;
-        background: #333;
-        margin: 20px 0;
-    }
+    hr { border: 0; height: 1px; background: #333; margin: 20px 0; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -176,10 +155,13 @@ def get_df_robust(sheet_obj):
         return pd.DataFrame()
 
 # --- 5. SIDEBAR NAVIGATION ---
-st.sidebar.title("🍕 Custom Crust HQ")
+# Custom Glowing Logo
+st.sidebar.markdown('<p class="sidebar-logo">🍕 CUSTOM CRUST HQ</p>', unsafe_allow_html=True)
+
 st.sidebar.markdown("---")
-st.sidebar.markdown("COMMAND CENTER")
-menu_choice = st.sidebar.radio("Navigation",["📊 Dashboard", "🏦 Assets & Debt", "🍳 Recipe Costing", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"], label_visibility="collapsed")
+st.sidebar.markdown("**COMMAND CENTER**") 
+menu_choice = st.sidebar.radio("Navigation", 
+    ["📊 Dashboard", "🏦 Assets & Debt", "🍳 Recipe Costing", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"], label_visibility="collapsed")
 st.sidebar.markdown("---")
 
 # --- 6. PAGE LOGIC ---
