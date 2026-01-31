@@ -10,7 +10,7 @@ import io
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
 
-# --- CUSTOM CSS (ROUNDED & ROBUST) ---
+# --- CUSTOM CSS (PROFESSIONAL LEFT ALIGN) ---
 st.markdown("""
 <style>
     /* 1. Main Background: Dark Mesh/Leather Texture */
@@ -20,48 +20,50 @@ st.markdown("""
         background-size: 20px 20px;
     }
     
-    /* 2. Sidebar: Robust Border */
+    /* 2. Sidebar: Robust Border & Left Alignment */
     [data-testid="stSidebar"] {
         background-color: #0e0e0e;
         background-image: radial-gradient(#262626 1px, transparent 0);
         background-size: 20px 20px;
         border-right: 3px solid #333;
+        padding-left: 10px; /* Breathing room */
     }
-    /* CENTER SIDEBAR MENU */
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-        text-align: center;
-    }
+    
+    /* 3. Sidebar Radio Buttons (The Menu Items) */
     [data-testid="stSidebar"] div[role="radiogroup"] {
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: flex-start; /* Force Left Align */
     }
+    
     [data-testid="stSidebar"] label[data-baseweb="radio"] {
         width: 100%;
-        justify-content: center;
+        justify-content: flex-start; /* Force text to start at left */
+        padding-left: 10px;
+        margin-bottom: 5px;
     }
-    /* 3. Metric Cards: Rounded & Thick */
-    [data-testid="stMetric"] {
-        background: linear-gradient(145deg, #1e1e1e, #141414);
-        padding: 15px 20px;
-        border-radius: 15px; /* Rounder corners */
-        border: 2px solid #444;
-        box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
-    }
-    /* 4. Horizontal Dividers: The "Capsule" Look */
-    hr {
-        margin-top: 30px;
-        margin-bottom: 30px;
-        border: 0;          /* Remove default square border */
-        height: 5px;        /* Thicker */
-        background: #333;   /* Color */
-        border-radius: 5px; /* Rounded edges (Capsule shape) */
-    }
-    /* 5. Remove default Plotly white/black backgrounds */
-    .js-plotly-plot .plotly .main-svg {
-        background-color: rgba(0,0,0,0) !important;
-    }
-    /* 6. Custom Font Styling */ h1, h2, h3, p, div, span { color: #E0E0E0 !important; }
+/* 4. Metric Cards: Rounded & Thick */
+[data-testid="stMetric"] {
+    background: linear-gradient(145deg, #1e1e1e, #141414);
+    padding: 15px 20px;
+    border-radius: 15px;
+    border: 2px solid #444;
+    box-shadow: 4px 4px 10px rgba(0,0,0,0.5);
+}
+/* 5. Horizontal Dividers: The "Capsule" Look */
+hr {
+    margin-top: 30px;
+    margin-bottom: 30px;
+    border: 0;
+    height: 5px;
+    background: #333;
+    border-radius: 5px;
+}
+/* 6. General Text Styling */
+h1, h2, h3, p, div, span {
+    color: #E0E0E0 !important;
+}
+/* 7. Specific Style for 'Command Center' Label */ .st-emotion-cache-16idsys p { font-size: 12px; text-transform: uppercase; color: #888 !important; letter-spacing: 1.5px; font-weight: 600; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -136,8 +138,10 @@ except Exception as e:
 # --- 4. SIDEBAR NAVIGATION ---
 st.sidebar.title("🍕 Custom Crust HQ")
 st.sidebar.markdown("---")
-menu_choice = st.sidebar.radio("Command Center", 
-    ["📊 Dashboard", "🏦 Assets & Debt", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"])
+# Use a simple text label for the section header
+st.sidebar.markdown("**COMMAND CENTER**") 
+menu_choice = st.sidebar.radio("Navigation", 
+    ["📊 Dashboard", "🏦 Assets & Debt", "📝 Log Expenses", "💰 Sales & Revenue", "🍕 Menu Editor", "🗄️ Document Vault"], label_visibility="collapsed")
 st.sidebar.markdown("---")
 
 # --- 5. PAGE LOGIC ---
