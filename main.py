@@ -20,29 +20,41 @@ st.markdown("""
         background-size: 20px 20px;
     }
     
-    /* 2. Sidebar: Robust Border & Left Alignment */
+    /* 2. Sidebar: Robust Border & Texture */
     [data-testid="stSidebar"] {
         background-color: #0e0e0e;
         background-image: radial-gradient(#262626 1px, transparent 0);
         background-size: 20px 20px;
         border-right: 3px solid #333;
-        padding-left: 10px; /* Breathing room */
+        padding-left: 10px;
+        padding-right: 10px; /* Add padding on right for the buttons */
     }
     
-    /* 3. Sidebar Radio Buttons (The Menu Items) */
+    /* 3. Sidebar Menu Items -> "Navigation Cards" */
     [data-testid="stSidebar"] div[role="radiogroup"] {
         display: flex;
         flex-direction: column;
-        align-items: flex-start; /* Force Left Align */
+        gap: 8px; /* Space between buttons */
     }
     
     [data-testid="stSidebar"] label[data-baseweb="radio"] {
-        width: 100%;
-        justify-content: flex-start; /* Force text to start at left */
-        padding-left: 10px;
-        margin-bottom: 5px;
+        background: linear-gradient(145deg, #1e1e1e, #141414); /* Card Background */
+        border: 1px solid #444;       /* Card Border */
+        border-radius: 10px;          /* Rounded Corners */
+        padding: 10px 15px;           /* Inner Spacing */
+        width: 100%;                  /* Fill Sidebar Width */
+        margin-bottom: 0px !important;
+        transition: all 0.2s ease-in-out;
+        box-shadow: 2px 2px 5px rgba(0,0,0,0.3); /* Subtle Shadow */
     }
-/* 4. Metric Cards: Rounded & Thick */
+    
+    /* Hover Effect for Buttons */
+    [data-testid="stSidebar"] label[data-baseweb="radio"]:hover {
+        border-color: #FF4B4B;        /* Highlight Color */
+        transform: translateX(5px);   /* Slide Right */
+        box-shadow: 4px 4px 8px rgba(0,0,0,0.5);
+    }
+/* 4. Metric Cards: Dashboard Boxes */
 [data-testid="stMetric"] {
     background: linear-gradient(145deg, #1e1e1e, #141414);
     padding: 15px 20px;
@@ -63,7 +75,7 @@ hr {
 h1, h2, h3, p, div, span {
     color: #E0E0E0 !important;
 }
-/* 7. Specific Style for 'Command Center' Label */ .st-emotion-cache-16idsys p { font-size: 12px; text-transform: uppercase; color: #888 !important; letter-spacing: 1.5px; font-weight: 600; }
+/* 7. Specific Style for 'Command Center' Label */ .st-emotion-cache-16idsys p { font-size: 12px; text-transform: uppercase; color: #888 !important; letter-spacing: 1.5px; font-weight: 600; margin-left: 5px; }
 
 </style>
 """, unsafe_allow_html=True)
