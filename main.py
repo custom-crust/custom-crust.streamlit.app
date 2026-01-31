@@ -10,7 +10,7 @@ import io
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
 
-# --- CUSTOM CSS (PREMIUM TEXTURE) ---
+# --- CUSTOM CSS (FULL TEXTURE) ---
 st.markdown("""
 <style>
     /* 1. Main Background: Dark Mesh/Leather Texture */
@@ -20,10 +20,12 @@ st.markdown("""
         background-size: 20px 20px;
     }
     
-    /* 2. Sidebar: Darker Contrast */
+    /* 2. Sidebar: Same Texture, Subtle Border */
     [data-testid="stSidebar"] {
-        background-color: #050505;
-        border-right: 1px solid #1f1f1f;
+        background-color: #0e0e0e;
+        background-image: radial-gradient(#262626 1px, transparent 0);
+        background-size: 20px 20px;
+        border-right: 1px solid #333;
     }
     /* 3. Metric Cards (Floating Effect) */
     [data-testid="stMetric"] {
@@ -37,6 +39,8 @@ st.markdown("""
     .js-plotly-plot .plotly .main-svg {
         background-color: rgba(0,0,0,0) !important;
     }
+    /* 5. Custom Font Styling */ h1, h2, h3, p, div, span { color: #E0E0E0 !important; }
+
 </style>
 """, unsafe_allow_html=True)
 
