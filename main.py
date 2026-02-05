@@ -569,7 +569,21 @@ elif menu_choice == "🗄️ Document Vault":
         c1, c2 = st.columns(2)
         name = c1.text_input("Name")
         link = c2.text_input("Link")
-        dtype = st.selectbox("Type", ["License", "Invoice", "Contract"])
+        # Document categories constant
+        VAULT_CATEGORIES = [
+            "Legal & Formation",      # Cert of Org, Operating Agreement, EIN
+            "Licenses & Permits",     # Health Inspection, ServSafe
+            "Assets & Vehicles",      # Trailer Title, Truck Purchase, Bill of Sale
+            "Contracts & Agreements", # Event Contracts, Vendor Agreements
+            "Banking & Financial",    # Bank Letters, Tax Forms
+            "Insurance",              # Liability Policy, Car Insurance
+            "Receipts & Expenses",    # Gas, Home Depot, Supplies
+            "Brand & Marketing",      # Logos, Social Media Assets
+            "Recipes & Menus",        # Food Specs, Prep Sheets
+            "Employee & HR",          # Staff Contracts (Future)
+            "Other"
+        ]
+        dtype = st.selectbox("Type", VAULT_CATEGORIES)
         if st.form_submit_button("Save Doc"):
             vault_sheet.append_row([name, dtype, link, str(pd.Timestamp.now().date())])
             st.success("Saved!")
