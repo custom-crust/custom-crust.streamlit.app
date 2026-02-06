@@ -7,6 +7,20 @@ import datetime
 import random
 import time
 
+# --- Currency Cleaner Helper ---
+def clean_currency(value):
+    """Converts string currency (e.g. '$1,200.50') into a clean float (1200.50)"""
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        # Remove '$' and ',' and whitespace
+        clean_str = value.replace('$', '').replace(',', '').strip()
+        try:
+            return float(clean_str) if clean_str else 0.0
+        except ValueError:
+            return 0.0
+    return 0.0
+
 # --- 1. SETUP PAGE CONFIGURATION ---
 st.set_page_config(page_title="Custom Crust HQ", page_icon="🍕", layout="wide")
 
@@ -225,31 +239,31 @@ if menu_choice == "📊 Dashboard":
         st.error("Error: Assets data not loaded yet.")
     else:
 
-        # 1. Filter for Liquid Assets (Bank & Cash)
-        # We use str() and .lower() to prevent crashes if fields are empty
-        liquid_assets = [
-            a for a in assets 
-            if str(a.get('classification', '')).strip().lower() == 'liquid' 
-            or str(a.get('type', '')).strip().lower() == 'liquid'
-        ]
 
-        # 2. Grab specifically "Northern Bank" and "Cash"
-        cash_on_hand_assets = [
-            a for a in liquid_assets 
-            if str(a.get('name', '')).strip().lower() in ['northern bank', 'cash', 'northern bank initial balance', 'cash initial balance']
-        ]
+        # --- ROBUST ASSET LOADING ---
+        # 1. Normalize keys to handle "Type" vs "type"
+        liquid_assets = []
+        for asset in assets:
+            # Get the type safely, checking both Capitalized and lowercase keys
+            asset_type = str(asset.get('Type') or asset.get('type') or asset.get('classification') or '').strip().lower()
+            if asset_type == 'liquid':
+                liquid_assets.append(asset)
 
-        # 3. Render the "Cash on Hand" Section
-        st.markdown("### 💰 Cash on Hand")
-        if cash_on_hand_assets:
-            cols = st.columns(len(cash_on_hand_assets))
-            for idx, asset in enumerate(cash_on_hand_assets):
-                # Calculate Balance: Initial + Deposits - Expenses
-                # (For now, we just show initial balance to verify display)
-                balance = float(asset.get('balance', 0) or asset.get('initial_balance', 0))
-                cols[idx].metric(label=asset.get('name'), value=f"${balance:,.2f}")
-        else:
-            st.warning("No 'Liquid' assets found. Please check your Google Sheet for 'Liquid' type.")
+        # 2. Fix the Dashboard "Cash on Hand" Calculation
+        st.subheader("💰 Cash on Hand")
+        cols = st.columns(2)
+
+        # Calculate Totals
+        northern_bank = next((a for a in liquid_assets if "northern bank" in str(a.get('Account Name') or a.get('name')).lower()), None)
+        cash = next((a for a in liquid_assets if "cash" in str(a.get('Account Name') or a.get('name')).lower()), None)
+
+        # Display Northern Bank
+        nb_balance = clean_currency(northern_bank.get('Balance', 0)) if northern_bank else 0.0
+        cols[0].metric("Northern Bank", f"${nb_balance:,.2f}")
+
+        # Display Cash
+        cash_balance = clean_currency(cash.get('Balance', 0)) if cash else 0.0
+        cols[1].metric("Cash", f"${cash_balance:,.2f}")
 
         st.divider() # Visual separation before Revenue/Expenses
 
@@ -259,19 +273,6 @@ if menu_choice == "📊 Dashboard":
     c2.metric("💸 Total Expenses", f"${total_exp:,.0f}")
     c3.metric("📈 Net Profit", f"${total_rev - total_exp:,.0f}", delta=total_rev - total_exp)
     c4.metric("🏛️ Business Equity", f"${total_assets - total_debt:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
-
-    # Split asset balances by classification
-    liquid_assets = []
-    fixed_assets = []
-    if not df_assets.empty and "Classification" in df_assets.columns:
-        for ab in asset_balances:
-            asset_row = df_assets[df_assets["Account Name"] == ab["name"]]
-            if not asset_row.empty:
-                classification = asset_row.iloc[0]["Classification"]
-                if classification == "Liquid":
-                    liquid_assets.append(ab)
-                elif classification == "Fixed":
-                    fixed_assets.append(ab)
 
 
 
@@ -574,9 +575,15 @@ elif menu_choice == "🏦 Assets & Debt":
         st.markdown("---")
         st.subheader("Add Deposit to Asset")
         # Only show Liquid assets in deposit dropdown
-        liquid_assets = df_a[df_a["Classification"].str.lower() == "liquid"]["Account Name"].tolist() if "Classification" in df_a.columns else []
+        # --- Robust Liquid Asset Dropdown ---
+        liquid_assets = []
+        for idx, row in df_a.iterrows():
+            asset_type = str(row.get('Type') or row.get('type') or row.get('Classification') or '').strip().lower()
+            if asset_type == 'liquid':
+                liquid_assets.append(row.get('Account Name') or row.get('name'))
         deposit_col1, deposit_col2 = st.columns(2)
-        deposit_asset = deposit_col1.selectbox("Select Asset", liquid_assets)
+        deposit_options = liquid_assets
+        deposit_asset = deposit_col1.selectbox("Select Asset to Deposit Into", options=deposit_options if deposit_options else ["No Liquid Assets Found"])
         deposit_amt = deposit_col2.number_input("Deposit Amount ($)", min_value=0.01, value=0.01, step=0.01)
         deposit_notes = st.text_input("Notes (optional)")
         deposit_date = st.date_input("Deposit Date", value=pd.Timestamp.now().date())
