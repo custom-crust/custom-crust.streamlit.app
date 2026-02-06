@@ -183,7 +183,6 @@ st.sidebar.markdown("---")
 
 # 📊 DASHBOARD
 if menu_choice == "📊 Dashboard":
-
     st.title("🚀 Business Command Center")
     st.markdown("###")
     
@@ -211,56 +210,14 @@ if menu_choice == "📊 Dashboard":
             normalized.append(clean_row)
         return normalized
 
-    # --- Load DataFrames ---
-    df_exp = load_data(ledger_sheet)
-    df_sales = load_data(sales_sheet)
-    df_assets_raw = load_data(assets_sheet)
-    df_debt = load_data(debt_sheet)
-
-    # --- Normalize Asset Data ---
+    # --- DASHBOARD LOGIC ---
+    # 1. Process the data
     assets = []
-    if not df_assets_raw.empty:
-        for idx, row in df_assets_raw.iterrows():
+    if not df_assets.empty:
+        for idx, row in df_assets.iterrows():
             assets.append(dict(row))
     clean_assets = normalize_asset_data(assets)
 
-    # --- BUG FIX: CREATE DF_ASSETS ---
-    if 'clean_assets' in locals() and clean_assets:
-        df_assets = pd.DataFrame(clean_assets)
-    else:
-        # Fallback to empty dataframe to prevent crashes
-        df_assets = pd.DataFrame()
-    # Ensure the 'date' column exists for sorting (prevents other errors)
-    if 'date' not in df_assets.columns:
-        df_assets['date'] = ""
-
-    # --- Calculations ---
-    total_exp = 0.0
-    if not df_exp.empty and "Cost" in df_exp.columns:
-        df_exp["Clean_Cost"] = df_exp["Cost"].apply(clean_money)
-        total_exp = df_exp["Clean_Cost"].sum()
-
-    total_rev = 0.0
-    if not df_sales.empty and "Revenue" in df_sales.columns:
-        df_sales["Clean_Rev"] = df_sales["Revenue"].apply(clean_money)
-        total_rev = df_sales["Clean_Rev"].sum()
-
-    total_assets = 0.0
-    if not df_assets.empty and "value" in df_assets.columns:
-        total_assets = df_assets["value"].sum()
-
-    total_debt = 0.0
-    if not df_debt.empty and "Amount" in df_debt.columns:
-        df_debt["Clean_Amt"] = df_debt["Amount"].apply(clean_money)
-        # Search for Type column
-        type_col = next((c for c in df_debt.columns if "Type" in c), None)
-        if type_col:
-            df_debt["Norm_Type"] = df_debt[type_col].astype(str).str.lower()
-            borrowed = df_debt[df_debt["Norm_Type"].str.contains("borrow")]["Clean_Amt"].sum()
-            repaid = df_debt[df_debt["Norm_Type"].str.contains("repay")]["Clean_Amt"].sum()
-            total_debt = borrowed - repaid
-
-    # --- Dashboard Logic ---
     # 2. Filter for Liquid Assets
     liquid_assets = [a for a in clean_assets if 'liquid' in str(a['type']).lower()]
 
@@ -268,17 +225,47 @@ if menu_choice == "📊 Dashboard":
     northern_bank = next((a for a in liquid_assets if "northern bank" in a['name'].lower()), None)
     cash = next((a for a in liquid_assets if "cash" in a['name'].lower()), None)
 
-    # 4. Render Dashboard Cards
-    st.subheader("💰 Cash on Hand")
-    cols = st.columns(2)
+        # --- LIVE BALANCE CALCULATOR ---
+        # 1. Initialize balances from Assets Sheet
+        asset_balances = {}
+        for asset in liquid_assets:
+            name = asset['name']
+            start_bal = clean_currency(asset.get('balance', 0) or asset.get('initial_balance', 0))
+            asset_balances[name] = start_bal
 
-    # Northern Bank Card
-    nb_val = northern_bank['value'] if northern_bank else 0.0
-    cols[0].metric("Northern Bank", f"${nb_val:,.2f}")
+        # 2. Subtract Expenses
+        # (Ensure we are reading the Expenses data safely)
+        if 'expenses_data' in locals() or 'expenses_data' in globals():
+            # Helper to clean expense costs
+            for expense in expenses_data:
+                # Match the "Payment Method" to the "Asset Name"
+                pay_method = str(expense.get('Payment Method') or expense.get('payment_method')).strip()
+                cost = clean_currency(expense.get('Cost') or expense.get('cost') or 0)
+            
+                # If this expense was paid by one of our liquid assets, subtract it
+                # We use simple string matching (you might want to make this fuzzy later)
+                for asset_name in asset_balances:
+                    if asset_name.lower() in pay_method.lower():
+                        asset_balances[asset_name] -= cost
 
-    # Cash Card
-    cash_val = cash['value'] if cash else 0.0
-    cols[1].metric("Cash", f"${cash_val:,.2f}")
+        # 3. Render Dashboard with Calculated Values
+        st.subheader("💰 Cash on Hand (Live)")
+        cols = st.columns(len(liquid_assets)) if liquid_assets else [st.empty()]
+
+        for idx, asset in enumerate(liquid_assets):
+            name = asset['name']
+            live_value = asset_balances.get(name, 0.0)
+        
+            # Color logic: Red if negative, Green if positive
+            delta_color = "normal" if live_value >= 0 else "inverse"
+        
+            cols[idx].metric(
+                label=name, 
+                value=f"${live_value:,.2f}",
+                delta=f"Initial: ${clean_currency(asset.get('balance', 0)):,.2f}"
+            )
+
+        st.caption("Live Balance = Initial Sheet Balance - Logged Expenses")
 
     # 5. Fix the Deposit Dropdown
     deposit_options = [a['name'] for a in liquid_assets]
