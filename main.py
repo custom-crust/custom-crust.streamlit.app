@@ -186,86 +186,60 @@ if menu_choice == "📊 Dashboard":
     st.title("🚀 Business Command Center")
     st.markdown("###")
     
-    # Load Data (Lazy)
-    df_exp = load_data(ledger_sheet)
-    df_sales = load_data(sales_sheet)
-    df_assets = load_data(assets_sheet)
-    df_debt = load_data(debt_sheet)
 
-    # Calculations
-    total_exp = 0.0
-    if not df_exp.empty and "Cost" in df_exp.columns:
-        df_exp["Clean_Cost"] = df_exp["Cost"].apply(clean_money)
-        total_exp = df_exp["Clean_Cost"].sum()
+    # --- HELPER: DATA NORMALIZER ---
+    def normalize_asset_data(raw_data):
+        """Converts all keys to lowercase and cleans currency values."""
+        normalized = []
+        for row in raw_data:
+            clean_row = {}
+            # 1. Lowercase all keys (e.g. 'Balance' -> 'balance')
+            for k, v in row.items():
+                clean_row[k.lower().strip()] = v
+            # 2. Extract key fields safely
+            clean_row['name'] = clean_row.get('account name') or clean_row.get('item name') or clean_row.get('name') or "Unknown"
+            clean_row['type'] = clean_row.get('type') or clean_row.get('classification') or clean_row.get('category') or ""
+            # 3. Clean Currency Math
+            raw_val = clean_row.get('balance') or clean_row.get('initial balance') or clean_row.get('cost') or "0"
+            if isinstance(raw_val, str):
+                raw_val = raw_val.replace('$', '').replace(',', '').strip()
+            try:
+                clean_row['value'] = float(raw_val)
+            except:
+                clean_row['value'] = 0.0
+            normalized.append(clean_row)
+        return normalized
 
-    total_rev = 0.0
-    if not df_sales.empty and "Revenue" in df_sales.columns:
-        df_sales["Clean_Rev"] = df_sales["Revenue"].apply(clean_money)
-        total_rev = df_sales["Clean_Rev"].sum()
-
-    total_assets = 0.0
-    if not df_assets.empty and "Balance" in df_assets.columns:
-        df_assets["Clean_Bal"] = df_assets["Balance"].apply(clean_money)
-        total_assets = df_assets["Clean_Bal"].sum()
-
-    total_debt = 0.0
-    if not df_debt.empty and "Amount" in df_debt.columns:
-        df_debt["Clean_Amt"] = df_debt["Amount"].apply(clean_money)
-        # Search for Type column
-        type_col = next((c for c in df_debt.columns if "Type" in c), None)
-        if type_col:
-            df_debt["Norm_Type"] = df_debt[type_col].astype(str).str.lower()
-            borrowed = df_debt[df_debt["Norm_Type"].str.contains("borrow")]["Clean_Amt"].sum()
-            repaid = df_debt[df_debt["Norm_Type"].str.contains("repay")]["Clean_Amt"].sum()
-            total_debt = borrowed - repaid
-
-
-    # --- Live Asset Balances ---
-    # Build asset dicts for easier filtering
+    # --- DASHBOARD LOGIC ---
+    # 1. Process the data
     assets = []
     if not df_assets.empty:
         for idx, row in df_assets.iterrows():
-            assets.append({
-                'name': row.get('Account Name', ''),
-                'classification': row.get('Classification', ''),
-                'type': row.get('Type', ''),
-                'initial_balance': clean_money(row.get('Initial Balance', 0)),
-                # Add more fields as needed
-            })
+            assets.append(dict(row))
+    clean_assets = normalize_asset_data(assets)
 
-    # --- SAFE BLOCK START ---
-    # Ensure assets are loaded first
-    if 'assets' not in locals() and 'assets' not in globals():
-        st.error("Error: Assets data not loaded yet.")
-    else:
+    # 2. Filter for Liquid Assets
+    liquid_assets = [a for a in clean_assets if 'liquid' in str(a['type']).lower()]
 
+    # 3. Find Specific Accounts (Loose matching to catch "Northern Bank Initial Balance")
+    northern_bank = next((a for a in liquid_assets if "northern bank" in a['name'].lower()), None)
+    cash = next((a for a in liquid_assets if "cash" in a['name'].lower()), None)
 
-        # --- ROBUST ASSET LOADING ---
-        # 1. Normalize keys to handle "Type" vs "type"
-        liquid_assets = []
-        for asset in assets:
-            # Get the type safely, checking both Capitalized and lowercase keys
-            asset_type = str(asset.get('Type') or asset.get('type') or asset.get('classification') or '').strip().lower()
-            if asset_type == 'liquid':
-                liquid_assets.append(asset)
+    # 4. Render Dashboard Cards
+    st.subheader("💰 Cash on Hand")
+    cols = st.columns(2)
 
-        # 2. Fix the Dashboard "Cash on Hand" Calculation
-        st.subheader("💰 Cash on Hand")
-        cols = st.columns(2)
+    # Northern Bank Card
+    nb_val = northern_bank['value'] if northern_bank else 0.0
+    cols[0].metric("Northern Bank", f"${nb_val:,.2f}")
 
-        # Calculate Totals
-        northern_bank = next((a for a in liquid_assets if "northern bank" in str(a.get('Account Name') or a.get('name')).lower()), None)
-        cash = next((a for a in liquid_assets if "cash" in str(a.get('Account Name') or a.get('name')).lower()), None)
+    # Cash Card
+    cash_val = cash['value'] if cash else 0.0
+    cols[1].metric("Cash", f"${cash_val:,.2f}")
 
-        # Display Northern Bank
-        nb_balance = clean_currency(northern_bank.get('Balance', 0)) if northern_bank else 0.0
-        cols[0].metric("Northern Bank", f"${nb_balance:,.2f}")
-
-        # Display Cash
-        cash_balance = clean_currency(cash.get('Balance', 0)) if cash else 0.0
-        cols[1].metric("Cash", f"${cash_balance:,.2f}")
-
-        st.divider() # Visual separation before Revenue/Expenses
+    # 5. Fix the Deposit Dropdown
+    deposit_options = [a['name'] for a in liquid_assets]
+    st.divider() # Visual separation before Revenue/Expenses
 
     # Top Metrics
     c1, c2, c3, c4 = st.columns(4)
