@@ -61,9 +61,10 @@ def load_data(sheet_obj):
         return pd.DataFrame()
 
 # Initialize Sheets (Connection Only - No Data Load Yet)
-ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date"])
+ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date", "Payment Source"])
 sales_sheet = get_worksheet("Sales", ["Event", "Type", "Revenue", "Date"])
-assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Balance", "Last Updated"])
+assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Initial Balance", "Balance", "Last Updated"])
+deposits_sheet = get_worksheet("Deposits", ["Date", "Amount", "Asset Name", "Notes"])
 debt_sheet = get_worksheet("Debt_Log", ["Loan Name", "Transaction Type", "Amount", "Date"])
 planner_sheet = get_worksheet("Planner", ["Event Name", "Date", "Projected Revenue", "Status"])
 vendor_sheet = get_worksheet("Vendors", ["Company Name", "Contact Person", "Phone", "Email", "Address", "Category"])
@@ -204,12 +205,37 @@ if menu_choice == "📊 Dashboard":
             repaid = df_debt[df_debt["Norm_Type"].str.contains("repay")]["Clean_Amt"].sum()
             total_debt = borrowed - repaid
 
+    # --- Live Asset Balances ---
+    df_deposits = load_data(deposits_sheet)
+    asset_balances = []
+    if not df_assets.empty:
+        for idx, row in df_assets.iterrows():
+            asset_name = row.get("Account Name", "")
+            initial_balance = clean_money(row.get("Initial Balance", 0))
+            # Sum deposits for this asset
+            deposits = 0.0
+            if not df_deposits.empty:
+                deposits = df_deposits[df_deposits["Asset Name"] == asset_name]["Amount"].apply(clean_money).sum()
+            # Sum expenses for this asset
+            expenses = 0.0
+            if not df_exp.empty and "Payment Source" in df_exp.columns:
+                expenses = df_exp[df_exp["Payment Source"] == asset_name]["Cost"].apply(clean_money).sum()
+            balance = initial_balance + deposits - expenses
+            asset_balances.append({"name": asset_name, "balance": balance})
+
     # Top Metrics
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("💰 Total Revenue", f"${total_rev:,.0f}")
     c2.metric("💸 Total Expenses", f"${total_exp:,.0f}")
     c3.metric("📈 Net Profit", f"${total_rev - total_exp:,.0f}", delta=total_rev - total_exp)
     c4.metric("🏛️ Business Equity", f"${total_assets - total_debt:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
+
+    # Show live balances for each asset (Northern Bank, Cash, etc.)
+    if asset_balances:
+        st.markdown("#### Current Asset Balances")
+        cols = st.columns(len(asset_balances))
+        for i, ab in enumerate(asset_balances):
+            cols[i].metric(f"{ab['name']}", f"${ab['balance']:,.2f}")
 
     st.markdown("---")
     
@@ -425,14 +451,21 @@ elif menu_choice == "📝 Log Expenses":
     c2.metric("📆 YTD Expenses", f"${ytd:,.2f}")
     st.divider()
 
+
+    # Load assets for payment method dropdown
+    df_assets_list = load_data(assets_sheet)
+    asset_names = df_assets_list["Account Name"].tolist() if not df_assets_list.empty else []
+    payment_options = asset_names + ["Other/External"]
+
     with st.form("expense_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
         item = c1.text_input("Item Name")
         cat = c2.selectbox("Category", ["Startup & Assets", "Inventory", "Equipment", "Vehicle", "Marketing", "Utilities", "Other"])
         cost = st.number_input("Cost ($)", min_value=0.01)
         date = st.date_input("Date")
+        payment_source = st.selectbox("Payment Method", payment_options)
         if st.form_submit_button("Log Expense"):
-            ledger_sheet.append_row([item, cat, cost, str(date)])
+            ledger_sheet.append_row([item, cat, cost, str(date), payment_source])
             st.success("Expense Logged!")
             st.rerun()
 
@@ -480,14 +513,28 @@ elif menu_choice == "🏦 Assets & Debt":
     with tab_assets:
         st.subheader("Asset Balances")
         df_a = load_data(assets_sheet)
-        if df_a.empty: df_a = pd.DataFrame([{"Account Name": "Checking", "Type": "Cash", "Balance": 0, "Last Updated": str(pd.Timestamp.now().date())}])
-        
+        if df_a.empty:
+            df_a = pd.DataFrame([{"Account Name": "Checking", "Type": "Cash", "Initial Balance": 0, "Balance": 0, "Last Updated": str(pd.Timestamp.now().date())}])
+
+        # Show asset table and allow editing
         edited = st.data_editor(df_a, num_rows="dynamic", use_container_width=True)
         if st.button("Save Assets"):
             assets_sheet.clear()
-            assets_sheet.append_row(["Account Name", "Type", "Balance", "Last Updated"])
+            assets_sheet.append_row(["Account Name", "Type", "Initial Balance", "Balance", "Last Updated"])
             if not edited.empty: assets_sheet.append_rows(edited.values.tolist())
             st.success("Assets Saved!")
+            st.rerun()
+
+        st.markdown("---")
+        st.subheader("Add Deposit to Asset")
+        deposit_col1, deposit_col2 = st.columns(2)
+        deposit_asset = deposit_col1.selectbox("Select Asset", df_a["Account Name"])
+        deposit_amt = deposit_col2.number_input("Deposit Amount ($)", min_value=0.01, value=0.01, step=0.01)
+        deposit_notes = st.text_input("Notes (optional)")
+        deposit_date = st.date_input("Deposit Date", value=pd.Timestamp.now().date())
+        if st.button("Add Deposit"):
+            deposits_sheet.append_row([str(deposit_date), deposit_amt, deposit_asset, deposit_notes])
+            st.success(f"Deposit of ${deposit_amt:,.2f} added to {deposit_asset}.")
             st.rerun()
 
 # 🤝 VENDOR NETWORK
