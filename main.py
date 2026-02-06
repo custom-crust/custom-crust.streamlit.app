@@ -233,21 +233,33 @@ if menu_choice == "📊 Dashboard":
                 # Add more fields as needed
             })
 
-    # Corrected Logic with proper indentation
-    liquid_assets = [a for a in assets if a.get('classification') == 'Liquid' or a.get('type') == 'Liquid']
-
-    cash_on_hand_assets = [
-        ab for ab in liquid_assets 
-        if ab.get("name", "").strip().lower() in ["northern bank", "cash"]
-    ]
-
-    # Ensure the Dashboard renders these cards safely
-    if cash_on_hand_assets:
-        cols = st.columns(len(cash_on_hand_assets))
-        for idx, asset in enumerate(cash_on_hand_assets):
-            current_balance = asset.get('initial_balance', 0)  # Add logic to include deposits/expenses later
-            cols[idx].metric(label=asset.get('name'), value=f"${current_balance:,.2f}")
+    # --- SAFE BLOCK START ---
+    # Ensure assets are loaded first
+    if 'assets' not in locals() and 'assets' not in globals():
+        st.error("Error: Assets data not loaded yet.")
     else:
+        # Filter for liquid assets (Case insensitive safety check)
+        liquid_assets = [
+            a for a in assets 
+            if str(a.get('classification', '')).lower() == 'liquid' 
+            or str(a.get('type', '')).lower() == 'liquid'
+        ]
+
+        # Filter specifically for Dashboard Display (Bank & Cash)
+        cash_on_hand_assets = [
+            a for a in liquid_assets 
+            if str(a.get('name', '')).strip().lower() in ['northern bank', 'cash']
+        ]
+
+        # Render Dashboard Cards
+        if cash_on_hand_assets:
+            st.subheader("Cash on Hand")
+            cols = st.columns(len(cash_on_hand_assets))
+            for idx, asset in enumerate(cash_on_hand_assets):
+                # Calculate balance logic would go here
+                balance = asset.get('initial_balance', 0) 
+                cols[idx].metric(label=asset.get('name'), value=f"${balance:,.2f}")
+    # --- SAFE BLOCK END ---
         st.info("No Liquid Assets (Bank/Cash) found. Please check your Assets table.")
 
     # Top Metrics
