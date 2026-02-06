@@ -224,20 +224,40 @@ if menu_choice == "📊 Dashboard":
     # 3. Find Specific Accounts (Loose matching to catch "Northern Bank Initial Balance")
     northern_bank = next((a for a in liquid_assets if "northern bank" in a['name'].lower()), None)
     cash = next((a for a in liquid_assets if "cash" in a['name'].lower()), None)
-
-        # --- LIVE BALANCE CALCULATOR ---
-        # 1. Initialize balances from Assets Sheet
-        asset_balances = {}
+    # 1. Initialize balances from Assets Sheet
+    asset_balances = {}
+    if 'liquid_assets' in locals():
         for asset in liquid_assets:
-            name = asset['name']
-            start_bal = clean_currency(asset.get('balance', 0) or asset.get('initial_balance', 0))
+            name = asset.get('name', 'Unknown')
+            # Use our helper to get the raw number
+            start_bal = clean_currency(asset.get('value', 0) or asset.get('balance', 0))
             asset_balances[name] = start_bal
 
-        # 2. Subtract Expenses
-        # (Ensure we are reading the Expenses data safely)
-        if 'expenses_data' in locals() or 'expenses_data' in globals():
-            # Helper to clean expense costs
-            for expense in expenses_data:
+    # 2. Subtract Expenses (The Live Math)
+    if 'expenses_data' in locals() and expenses_data:
+        for expense in expenses_data:
+            # Get Payment Method and Cost
+            pay_method = str(expense.get('Payment Method') or expense.get('payment_method') or '').strip()
+            cost = clean_currency(expense.get('Cost') or expense.get('cost') or 0)
+            
+            # If the Payment Method matches an Asset Name, subtract the cost
+            for asset_name in asset_balances:
+                if asset_name.lower() in pay_method.lower():
+                    asset_balances[asset_name] -= cost
+
+    # 3. Render the Dashboard Cards
+    st.subheader("💰 Cash on Hand (Live)")
+    
+    # Safety check if we have assets to show
+    if asset_balances:
+        cols = st.columns(len(asset_balances))
+        for idx, (name, live_val) in enumerate(asset_balances.items()):
+            cols[idx].metric(
+                label=name, 
+                value=f"${live_val:,.2f}"
+            )
+    else:
+        st.info("No liquid assets found. Check your Assets table.")
                 # Match the "Payment Method" to the "Asset Name"
                 pay_method = str(expense.get('Payment Method') or expense.get('payment_method')).strip()
                 cost = clean_currency(expense.get('Cost') or expense.get('cost') or 0)
