@@ -1,3 +1,17 @@
+    # --- Cash on Hand row (move to very top) ---
+    cash_on_hand_assets = [ab for ab in liquid_assets if ab["name"].strip().lower() in ["northern bank", "cash"]]
+    if cash_on_hand_assets:
+        st.markdown("#### Cash Position")
+        cols = st.columns(len(cash_on_hand_assets))
+        for i, ab in enumerate(cash_on_hand_assets):
+            cols[i].metric(f"{ab['name']}", f"${ab['balance']:,.2f}")
+
+    # Top Metrics
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("💰 Total Revenue", f"${total_rev:,.0f}")
+    c2.metric("💸 Total Expenses", f"${total_exp:,.0f}")
+    c3.metric("📈 Net Profit", f"${total_rev - total_exp:,.0f}", delta=total_rev - total_exp)
+    c4.metric("🏛️ Business Equity", f"${total_assets - total_debt:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -244,25 +258,6 @@ if menu_choice == "📊 Dashboard":
                     fixed_assets.append(ab)
 
 
-    # --- Cash on Hand row ---
-    cash_on_hand_assets = [ab for ab in liquid_assets if ab["name"].lower() in ["northern bank", "cash"]]
-    if cash_on_hand_assets:
-        st.markdown("#### Cash on Hand")
-        cols = st.columns(len(cash_on_hand_assets))
-        for i, ab in enumerate(cash_on_hand_assets):
-            cols[i].metric(f"{ab['name']}", f"${ab['balance']:,.2f}")
-
-    if liquid_assets:
-        st.markdown("#### Cash & Banking")
-        cols = st.columns(len(liquid_assets))
-        for i, ab in enumerate(liquid_assets):
-            cols[i].metric(f"{ab['name']}", f"${ab['balance']:,.2f}")
-
-    if fixed_assets:
-        st.markdown("#### Equipment & Inventory")
-        cols = st.columns(len(fixed_assets))
-        for i, ab in enumerate(fixed_assets):
-            cols[i].metric(f"{ab['name']}", f"${ab['balance']:,.2f}")
 
     st.markdown("---")
     
@@ -482,10 +477,15 @@ elif menu_choice == "📝 Log Expenses":
     # Load assets for payment method dropdown
     df_assets_list = load_data(assets_sheet)
     liquid_assets = []
-    if not df_assets_list.empty and "Classification" in df_assets_list.columns:
-        # Only show assets where classification or type is Liquid (case-insensitive)
-        liquid_assets = df_assets_list[df_assets_list["Classification"].str.lower() == "liquid"]["Account Name"].tolist()
-    payment_options = liquid_assets + ["Other/External"]
+    if not df_assets_list.empty:
+        # Filter for Liquid by classification or type (case-insensitive)
+        for _, row in df_assets_list.iterrows():
+            class_val = str(row.get("Classification", "")).strip().lower()
+            type_val = str(row.get("Type", "")).strip().lower()
+            if class_val == "liquid" or type_val == "liquid":
+                liquid_assets.append(row["Account Name"])
+    payment_options = liquid_assets if liquid_assets else []
+    payment_options.append("Other/External")
 
     with st.form("expense_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
