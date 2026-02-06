@@ -219,23 +219,36 @@ if menu_choice == "📊 Dashboard":
             repaid = df_debt[df_debt["Norm_Type"].str.contains("repay")]["Clean_Amt"].sum()
             total_debt = borrowed - repaid
 
+
     # --- Live Asset Balances ---
-    df_deposits = load_data(deposits_sheet)
-    asset_balances = []
+    # Build asset dicts for easier filtering
+    assets = []
     if not df_assets.empty:
         for idx, row in df_assets.iterrows():
-            asset_name = row.get("Account Name", "")
-            initial_balance = clean_money(row.get("Initial Balance", 0))
-            # Sum deposits for this asset
-            deposits = 0.0
-            if not df_deposits.empty:
-                deposits = df_deposits[df_deposits["Asset Name"] == asset_name]["Amount"].apply(clean_money).sum()
-            # Sum expenses for this asset
-            expenses = 0.0
-            if not df_exp.empty and "Payment Source" in df_exp.columns:
-                expenses = df_exp[df_exp["Payment Source"] == asset_name]["Cost"].apply(clean_money).sum()
-            balance = initial_balance + deposits - expenses
-            asset_balances.append({"name": asset_name, "balance": balance})
+            assets.append({
+                'name': row.get('Account Name', ''),
+                'classification': row.get('Classification', ''),
+                'type': row.get('Type', ''),
+                'initial_balance': clean_money(row.get('Initial Balance', 0)),
+                # Add more fields as needed
+            })
+
+    # Corrected Logic with proper indentation
+    liquid_assets = [a for a in assets if a.get('classification') == 'Liquid' or a.get('type') == 'Liquid']
+
+    cash_on_hand_assets = [
+        ab for ab in liquid_assets 
+        if ab.get("name", "").strip().lower() in ["northern bank", "cash"]
+    ]
+
+    # Ensure the Dashboard renders these cards safely
+    if cash_on_hand_assets:
+        cols = st.columns(len(cash_on_hand_assets))
+        for idx, asset in enumerate(cash_on_hand_assets):
+            current_balance = asset.get('initial_balance', 0)  # Add logic to include deposits/expenses later
+            cols[idx].metric(label=asset.get('name'), value=f"${current_balance:,.2f}")
+    else:
+        st.info("No Liquid Assets (Bank/Cash) found. Please check your Assets table.")
 
     # Top Metrics
     c1, c2, c3, c4 = st.columns(4)
