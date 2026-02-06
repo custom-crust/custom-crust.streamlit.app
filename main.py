@@ -1,17 +1,3 @@
-    # --- Cash on Hand row (move to very top) ---
-    cash_on_hand_assets = [ab for ab in liquid_assets if ab["name"].strip().lower() in ["northern bank", "cash"]]
-    if cash_on_hand_assets:
-        st.markdown("#### Cash Position")
-        cols = st.columns(len(cash_on_hand_assets))
-        for i, ab in enumerate(cash_on_hand_assets):
-            cols[i].metric(f"{ab['name']}", f"${ab['balance']:,.2f}")
-
-    # Top Metrics
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("💰 Total Revenue", f"${total_rev:,.0f}")
-    c2.metric("💸 Total Expenses", f"${total_exp:,.0f}")
-    c3.metric("📈 Net Profit", f"${total_rev - total_exp:,.0f}", delta=total_rev - total_exp)
-    c4.metric("🏛️ Business Equity", f"${total_assets - total_debt:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -238,29 +224,34 @@ if menu_choice == "📊 Dashboard":
     if 'assets' not in locals() and 'assets' not in globals():
         st.error("Error: Assets data not loaded yet.")
     else:
-        # Filter for liquid assets (Case insensitive safety check)
+
+        # 1. Filter for Liquid Assets (Bank & Cash)
+        # We use str() and .lower() to prevent crashes if fields are empty
         liquid_assets = [
             a for a in assets 
-            if str(a.get('classification', '')).lower() == 'liquid' 
-            or str(a.get('type', '')).lower() == 'liquid'
+            if str(a.get('classification', '')).strip().lower() == 'liquid' 
+            or str(a.get('type', '')).strip().lower() == 'liquid'
         ]
 
-        # Filter specifically for Dashboard Display (Bank & Cash)
+        # 2. Grab specifically "Northern Bank" and "Cash"
         cash_on_hand_assets = [
             a for a in liquid_assets 
-            if str(a.get('name', '')).strip().lower() in ['northern bank', 'cash']
+            if str(a.get('name', '')).strip().lower() in ['northern bank', 'cash', 'northern bank initial balance', 'cash initial balance']
         ]
 
-        # Render Dashboard Cards
+        # 3. Render the "Cash on Hand" Section
+        st.markdown("### 💰 Cash on Hand")
         if cash_on_hand_assets:
-            st.subheader("Cash on Hand")
             cols = st.columns(len(cash_on_hand_assets))
             for idx, asset in enumerate(cash_on_hand_assets):
-                # Calculate balance logic would go here
-                balance = asset.get('initial_balance', 0) 
+                # Calculate Balance: Initial + Deposits - Expenses
+                # (For now, we just show initial balance to verify display)
+                balance = float(asset.get('balance', 0) or asset.get('initial_balance', 0))
                 cols[idx].metric(label=asset.get('name'), value=f"${balance:,.2f}")
-    # --- SAFE BLOCK END ---
-        st.info("No Liquid Assets (Bank/Cash) found. Please check your Assets table.")
+        else:
+            st.warning("No 'Liquid' assets found. Please check your Google Sheet for 'Liquid' type.")
+
+        st.divider() # Visual separation before Revenue/Expenses
 
     # Top Metrics
     c1, c2, c3, c4 = st.columns(4)
