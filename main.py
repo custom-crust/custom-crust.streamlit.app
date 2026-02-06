@@ -243,6 +243,15 @@ if menu_choice == "📊 Dashboard":
                 elif classification == "Fixed":
                     fixed_assets.append(ab)
 
+
+    # --- Cash on Hand row ---
+    cash_on_hand_assets = [ab for ab in liquid_assets if ab["name"].lower() in ["northern bank", "cash"]]
+    if cash_on_hand_assets:
+        st.markdown("#### Cash on Hand")
+        cols = st.columns(len(cash_on_hand_assets))
+        for i, ab in enumerate(cash_on_hand_assets):
+            cols[i].metric(f"{ab['name']}", f"${ab['balance']:,.2f}")
+
     if liquid_assets:
         st.markdown("#### Cash & Banking")
         cols = st.columns(len(liquid_assets))
@@ -474,7 +483,8 @@ elif menu_choice == "📝 Log Expenses":
     df_assets_list = load_data(assets_sheet)
     liquid_assets = []
     if not df_assets_list.empty and "Classification" in df_assets_list.columns:
-        liquid_assets = df_assets_list[df_assets_list["Classification"] == "Liquid"]["Account Name"].tolist()
+        # Only show assets where classification or type is Liquid (case-insensitive)
+        liquid_assets = df_assets_list[df_assets_list["Classification"].str.lower() == "liquid"]["Account Name"].tolist()
     payment_options = liquid_assets + ["Other/External"]
 
     with st.form("expense_form", clear_on_submit=True):
@@ -547,12 +557,14 @@ elif menu_choice == "🏦 Assets & Debt":
 
         st.markdown("---")
         st.subheader("Add Deposit to Asset")
+        # Only show Liquid assets in deposit dropdown
+        liquid_assets = df_a[df_a["Classification"].str.lower() == "liquid"]["Account Name"].tolist() if "Classification" in df_a.columns else []
         deposit_col1, deposit_col2 = st.columns(2)
-        deposit_asset = deposit_col1.selectbox("Select Asset", df_a["Account Name"])
+        deposit_asset = deposit_col1.selectbox("Select Asset", liquid_assets)
         deposit_amt = deposit_col2.number_input("Deposit Amount ($)", min_value=0.01, value=0.01, step=0.01)
         deposit_notes = st.text_input("Notes (optional)")
         deposit_date = st.date_input("Deposit Date", value=pd.Timestamp.now().date())
-        if st.button("Add Deposit"):
+        if st.button("Add Deposit") and deposit_asset:
             deposits_sheet.append_row([str(deposit_date), deposit_amt, deposit_asset, deposit_notes])
             st.success(f"Deposit of ${deposit_amt:,.2f} added to {deposit_asset}.")
             st.rerun()
