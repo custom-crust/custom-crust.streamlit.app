@@ -183,6 +183,7 @@ st.sidebar.markdown("---")
 
 # 📊 DASHBOARD
 if menu_choice == "📊 Dashboard":
+
     st.title("🚀 Business Command Center")
     st.markdown("###")
     
@@ -210,14 +211,56 @@ if menu_choice == "📊 Dashboard":
             normalized.append(clean_row)
         return normalized
 
-    # --- DASHBOARD LOGIC ---
-    # 1. Process the data
+    # --- Load DataFrames ---
+    df_exp = load_data(ledger_sheet)
+    df_sales = load_data(sales_sheet)
+    df_assets_raw = load_data(assets_sheet)
+    df_debt = load_data(debt_sheet)
+
+    # --- Normalize Asset Data ---
     assets = []
-    if not df_assets.empty:
-        for idx, row in df_assets.iterrows():
+    if not df_assets_raw.empty:
+        for idx, row in df_assets_raw.iterrows():
             assets.append(dict(row))
     clean_assets = normalize_asset_data(assets)
 
+    # --- BUG FIX: CREATE DF_ASSETS ---
+    if 'clean_assets' in locals() and clean_assets:
+        df_assets = pd.DataFrame(clean_assets)
+    else:
+        # Fallback to empty dataframe to prevent crashes
+        df_assets = pd.DataFrame()
+    # Ensure the 'date' column exists for sorting (prevents other errors)
+    if 'date' not in df_assets.columns:
+        df_assets['date'] = ""
+
+    # --- Calculations ---
+    total_exp = 0.0
+    if not df_exp.empty and "Cost" in df_exp.columns:
+        df_exp["Clean_Cost"] = df_exp["Cost"].apply(clean_money)
+        total_exp = df_exp["Clean_Cost"].sum()
+
+    total_rev = 0.0
+    if not df_sales.empty and "Revenue" in df_sales.columns:
+        df_sales["Clean_Rev"] = df_sales["Revenue"].apply(clean_money)
+        total_rev = df_sales["Clean_Rev"].sum()
+
+    total_assets = 0.0
+    if not df_assets.empty and "value" in df_assets.columns:
+        total_assets = df_assets["value"].sum()
+
+    total_debt = 0.0
+    if not df_debt.empty and "Amount" in df_debt.columns:
+        df_debt["Clean_Amt"] = df_debt["Amount"].apply(clean_money)
+        # Search for Type column
+        type_col = next((c for c in df_debt.columns if "Type" in c), None)
+        if type_col:
+            df_debt["Norm_Type"] = df_debt[type_col].astype(str).str.lower()
+            borrowed = df_debt[df_debt["Norm_Type"].str.contains("borrow")]["Clean_Amt"].sum()
+            repaid = df_debt[df_debt["Norm_Type"].str.contains("repay")]["Clean_Amt"].sum()
+            total_debt = borrowed - repaid
+
+    # --- Dashboard Logic ---
     # 2. Filter for Liquid Assets
     liquid_assets = [a for a in clean_assets if 'liquid' in str(a['type']).lower()]
 
