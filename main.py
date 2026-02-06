@@ -63,7 +63,7 @@ def load_data(sheet_obj):
 # Initialize Sheets (Connection Only - No Data Load Yet)
 ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date", "Payment Source"])
 sales_sheet = get_worksheet("Sales", ["Event", "Type", "Revenue", "Date"])
-assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Initial Balance", "Balance", "Last Updated"])
+assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Classification", "Initial Balance", "Balance", "Last Updated"])
 deposits_sheet = get_worksheet("Deposits", ["Date", "Amount", "Asset Name", "Notes"])
 debt_sheet = get_worksheet("Debt_Log", ["Loan Name", "Transaction Type", "Amount", "Date"])
 planner_sheet = get_worksheet("Planner", ["Event Name", "Date", "Projected Revenue", "Status"])
@@ -230,11 +230,29 @@ if menu_choice == "📊 Dashboard":
     c3.metric("📈 Net Profit", f"${total_rev - total_exp:,.0f}", delta=total_rev - total_exp)
     c4.metric("🏛️ Business Equity", f"${total_assets - total_debt:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
 
-    # Show live balances for each asset (Northern Bank, Cash, etc.)
-    if asset_balances:
-        st.markdown("#### Current Asset Balances")
-        cols = st.columns(len(asset_balances))
-        for i, ab in enumerate(asset_balances):
+    # Split asset balances by classification
+    liquid_assets = []
+    fixed_assets = []
+    if not df_assets.empty and "Classification" in df_assets.columns:
+        for ab in asset_balances:
+            asset_row = df_assets[df_assets["Account Name"] == ab["name"]]
+            if not asset_row.empty:
+                classification = asset_row.iloc[0]["Classification"]
+                if classification == "Liquid":
+                    liquid_assets.append(ab)
+                elif classification == "Fixed":
+                    fixed_assets.append(ab)
+
+    if liquid_assets:
+        st.markdown("#### Cash & Banking")
+        cols = st.columns(len(liquid_assets))
+        for i, ab in enumerate(liquid_assets):
+            cols[i].metric(f"{ab['name']}", f"${ab['balance']:,.2f}")
+
+    if fixed_assets:
+        st.markdown("#### Equipment & Inventory")
+        cols = st.columns(len(fixed_assets))
+        for i, ab in enumerate(fixed_assets):
             cols[i].metric(f"{ab['name']}", f"${ab['balance']:,.2f}")
 
     st.markdown("---")
@@ -454,8 +472,10 @@ elif menu_choice == "📝 Log Expenses":
 
     # Load assets for payment method dropdown
     df_assets_list = load_data(assets_sheet)
-    asset_names = df_assets_list["Account Name"].tolist() if not df_assets_list.empty else []
-    payment_options = asset_names + ["Other/External"]
+    liquid_assets = []
+    if not df_assets_list.empty and "Classification" in df_assets_list.columns:
+        liquid_assets = df_assets_list[df_assets_list["Classification"] == "Liquid"]["Account Name"].tolist()
+    payment_options = liquid_assets + ["Other/External"]
 
     with st.form("expense_form", clear_on_submit=True):
         c1, c2 = st.columns(2)
@@ -517,10 +537,10 @@ elif menu_choice == "🏦 Assets & Debt":
             df_a = pd.DataFrame([{"Account Name": "Checking", "Type": "Cash", "Initial Balance": 0, "Balance": 0, "Last Updated": str(pd.Timestamp.now().date())}])
 
         # Show asset table and allow editing
-        edited = st.data_editor(df_a, num_rows="dynamic", use_container_width=True)
+        edited = st.data_editor(df_a, num_rows="dynamic", use_container_width=True, column_order=["Account Name", "Type", "Classification", "Initial Balance", "Balance", "Last Updated"])
         if st.button("Save Assets"):
             assets_sheet.clear()
-            assets_sheet.append_row(["Account Name", "Type", "Initial Balance", "Balance", "Last Updated"])
+            assets_sheet.append_row(["Account Name", "Type", "Classification", "Initial Balance", "Balance", "Last Updated"])
             if not edited.empty: assets_sheet.append_rows(edited.values.tolist())
             st.success("Assets Saved!")
             st.rerun()
