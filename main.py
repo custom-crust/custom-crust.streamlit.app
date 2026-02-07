@@ -12,7 +12,8 @@ except ModuleNotFoundError:
 
 # --- 1. HELPER FUNCTIONS ---
 def clean_currency(value):
-    """Converts money strings like '$1,200.50' to float 1200.50"""
+    if pd.isna(value) or value == "":
+        return 0.0
     if isinstance(value, (int, float)):
         return float(value)
     if isinstance(value, str):
@@ -24,16 +25,12 @@ def clean_currency(value):
     return 0.0
 
 def load_data():
-    """Safe data loader. Returns raw lists of dictionaries."""
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         assets = conn.read(worksheet="Assets", ttl=0).to_dict('records')
         expenses = conn.read(worksheet="Expenses", ttl=0).to_dict('records')
-        
-            # Normalize keys immediately so we don't worry about capitalization later
-            clean_assets = normalize_keys(assets)
-            clean_expenses = normalize_keys(expenses)
-        
+        clean_assets = normalize_keys(assets)
+        clean_expenses = normalize_keys(expenses)
         return clean_assets, clean_expenses
     except Exception:
         return [], []
