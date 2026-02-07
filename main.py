@@ -1,43 +1,58 @@
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+
+import streamlit as st
+import pandas as pd
 import plotly.express as px
 from datetime import datetime
 
-# --- 1. HELPER FUNCTIONS ---
-def load_data():
-    """Safe data loader that won't crash the app if sheets are empty."""
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        assets = conn.read(worksheet="Assets", ttl=0).to_dict('records')
-        expenses = conn.read(worksheet="Expenses", ttl=0).to_dict('records')
-        return assets, expenses
-    except Exception as e:
-        return [], []
+# Try to import GSheets. If missing, show clear error.
+try:
+    from streamlit_gsheets import GSheetsConnection
+except ModuleNotFoundError:
+    st.error("🚨 Missing 'st-gsheets-connection'. Please ensure it is in requirements.txt")
+    st.stop()
 
+# --- 1. HELPER FUNCTIONS ---
 def clean_currency(value):
     """Converts money strings like '$1,200.50' to float 1200.50"""
     if isinstance(value, (int, float)):
         return float(value)
-    return float(str(value).replace('$', '').replace(',', '').strip() or 0)
+    if isinstance(value, str):
+        # Remove $ , and whitespace
+        clean_str = value.replace('$', '').replace(',', '').strip()
+        try:
+            return float(clean_str) if clean_str else 0.0
+        except ValueError:
+            return 0.0
+    return 0.0
+
+def load_data():
+    """Safe data loader. Returns raw lists of dictionaries."""
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        # Read data and ensure it's a list of dicts
+        assets = conn.read(worksheet="Assets", ttl=0).to_dict('records')
+        expenses = conn.read(worksheet="Expenses", ttl=0).to_dict('records')
+        
+        # CLEAN KEYS: Strip spaces from column names (e.g. ' Type ' -> 'Type')
+        clean_assets = [{k.strip(): v for k, v in row.items()} for row in assets]
+        clean_expenses = [{k.strip(): v for k, v in row.items()} for row in expenses]
+        
+        return clean_assets, clean_expenses
+    except Exception as e:
+        # If connection fails, return empty lists so app doesn't crash
+        return [], []
 
 # --- 2. MAIN APPLICATION ---
 def main():
     st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
     
-    # Load Data Immediately
+    # Load Data
     assets, expenses_data = load_data()
-    
-    # Process Liquid Assets (Safe Logic)
-    liquid_assets = []
-    if assets:
-        for a in assets:
-            # Check for 'Type', 'type', 'Classification' safely
-            atype = str(a.get('Type') or a.get('type') or '').strip().lower()
-            if atype == 'liquid':
-                liquid_assets.append(a)
 
-    # --- SIDEBAR ---
+    # Sidebar
     st.sidebar.title("Navigation")
     options = [
         "📊 Dashboard", 
@@ -53,147 +68,133 @@ def main():
     ]
     selected = st.sidebar.radio("Go to", options)
 
+    # --- TAB 1: DASHBOARD ---
     if selected == "📊 Dashboard":
         st.markdown("## 🚀 Business Command Center")
 
-        # --- A. ROBUST DATA FILTERING ---
-        # 1. Clean Column Names (Strip spaces from keys)
-        safe_assets = []
-        if 'assets' in locals() and assets:
-            for a in assets:
-                # Create a new dict with stripped keys
-                clean_a = {k.strip(): v for k, v in a.items()}
-                safe_assets.append(clean_a)
-        
-        safe_expenses = []
-        if 'expenses_data' in locals() and expenses_data:
-            for e in expenses_data:
-                clean_e = {k.strip(): v for k, v in e.items()}
-                safe_expenses.append(clean_e)
-
-        # 2. Filter Liquid Assets
+        # A. Filter Liquid Assets
         liquid_assets = []
-        for a in safe_assets:
-            # Check 'Type' case-insensitive
+        for a in assets:
+            # Flexible check for 'Type'
             atype = str(a.get('Type') or a.get('type') or '').strip().lower()
             if atype == 'liquid':
                 liquid_assets.append(a)
 
-        # 3. Calculate Live Balances
+        # B. Calculate Live Balances
         live_balances = {}
+        # 1. Start with initial balances from Assets sheet
         for asset in liquid_assets:
-            name = str(asset.get('Account Name') or asset.get('name') or 'Unknown')
+            name = str(asset.get('Account Name') or asset.get('name') or 'Unknown').strip()
             val = clean_currency(asset.get('Balance') or asset.get('balance') or 0)
             live_balances[name] = val
-
-        # 4. Subtract Expenses
+        
+        # 2. Subtract Expenses
         total_exp = 0.0
-        if safe_expenses:
-            for exp in safe_expenses:
-                cost = clean_currency(exp.get('Cost') or exp.get('cost') or 0)
+        chart_data = [] # For Pie Chart
+        
+        for exp in expenses_data:
+            cost = clean_currency(exp.get('Cost') or exp.get('cost') or 0)
+            category = str(exp.get('Category') or 'Uncategorized')
+            
+            if cost > 0:
                 total_exp += cost
+                chart_data.append({'Category': category, 'Cost': cost})
                 
-                # Payment Method Matching
+                # Deduct from Asset if Payment Method matches
                 method = str(exp.get('Payment Method') or exp.get('payment_method') or '').strip().lower()
                 for asset_name in live_balances:
                     if asset_name.lower() in method:
                         live_balances[asset_name] -= cost
 
-        # --- B. VISUALS & METRICS ---
+        # C. Render Metrics
         st.subheader("💰 Cash on Hand (Live)")
         if live_balances:
             cols = st.columns(len(live_balances))
             for idx, (name, val) in enumerate(live_balances.items()):
                 cols[idx].metric(label=name, value=f"${val:,.2f}")
         else:
-            st.warning("⚠️ No liquid assets found. Check if your Google Sheet has a column named 'Type' set to 'Liquid'.")
+            st.warning("⚠️ No liquid assets found. Please check your Assets tab (Column 'Type' must be 'Liquid').")
 
         st.divider()
 
-        # Profit Metrics
-        total_rev = 0.0 # Placeholder for Revenue logic
+        # D. Profit Metrics
+        total_rev = 0.0 # Placeholder
         net_profit = total_rev - total_exp
         
         m1, m2, m3 = st.columns(3)
         m1.metric("Total Revenue", f"${total_rev:,.2f}")
         m2.metric("Total Expenses", f"${total_exp:,.2f}", delta="-")
         m3.metric("Net Profit", f"${net_profit:,.2f}", delta=f"{net_profit:,.2f}")
-
+        
         st.divider()
-
-        # --- C. CHARTS ---
+        
+        # E. Charts
         c1, c2 = st.columns(2)
         with c1:
             st.caption("Revenue Sources")
-            st.info("No sales data recorded yet.")
-            
+            st.info("No sales data yet.")
         with c2:
             st.caption("Expense Breakdown")
-            if safe_expenses:
-                # Prepare data for Pie Chart
-                chart_data = []
-                for e in safe_expenses:
-                    cat = e.get('Category') or 'Uncategorized'
-                    amt = clean_currency(e.get('Cost') or 0)
-                    if amt > 0:
-                        chart_data.append({'Category': cat, 'Cost': amt})
-                
-                if chart_data:
-                    df_chart = pd.DataFrame(chart_data)
-                    fig = px.pie(df_chart, values='Cost', names='Category', hole=0.4)
-                    st.plotly_chart(fig, use_container_width=True)
-                else:
-                    st.info("No expenses > $0 to chart.")
+            if chart_data:
+                df_chart = pd.DataFrame(chart_data)
+                fig = px.pie(df_chart, values='Cost', names='Category', hole=0.4)
+                st.plotly_chart(fig, use_container_width=True)
             else:
                 st.info("No expenses logged yet.")
-
-    # --- TAB 2: PLANNER ---
-    elif selected == "📅 Planner & Projections":
-        st.title("📅 Planner & Projections")
-        st.info("Coming soon...")
-
-    # --- TAB 3: INVOICE GENERATOR ---
-    elif selected == "🧾 Invoice Generator":
-        st.title("🧾 Invoice Generator")
-        st.info("Coming soon...")
-
-    # --- TAB 4: SALES ---
-    elif selected == "💰 Sales & Revenue":
-        st.title("💰 Sales & Revenue")
-        st.info("Coming soon...")
 
     # --- TAB 5: LOG EXPENSES ---
     elif selected == "📝 Log Expenses":
         st.markdown("## 📝 Log Business Expenses")
         
-        # Form Container
-        with st.form("expense_entry_form", clear_on_submit=True):
+        with st.form("expense_entry", clear_on_submit=True):
             col1, col2 = st.columns(2)
-            
             with col1:
-                item_name = st.text_input("Item / Description")
+                item_name = st.text_input("Item Description")
                 cost = st.number_input("Cost ($)", min_value=0.0, format="%.2f")
                 category = st.selectbox("Category", [
                     "Startup & Assets", "Inventory", "Equipment", 
                     "Marketing", "Utilities", "Rent", "Labor", "Other"
                 ])
-                
             with col2:
                 date = st.date_input("Date", datetime.today())
                 
-                # Dynamic Payment Method (Links to Assets)
+                # Dynamic Bank Dropdown
                 pay_options = ["External / Cash"]
-                if 'assets' in locals() and assets:
-                    for a in assets:
-                        # Clean asset keys just in case
-                        safe_a = {k.strip(): v for k, v in a.items()}
-                        aname = str(safe_a.get('Account Name') or safe_a.get('name') or '').strip()
-                        atype = str(safe_a.get('Type') or '').strip().lower()
-                        
-                        if aname and atype == 'liquid':
-                            pay_options.append(aname)
+                for a in assets:
+                    atype = str(a.get('Type') or '').strip().lower()
+                    if atype == 'liquid':
+                        name = str(a.get('Account Name') or a.get('name') or '').strip()
+                        if name:
+                            pay_options.append(name)
                             
                 payment_method = st.selectbox("Payment Method", pay_options)
+                notes = st.text_area("Notes")
+            
+            submitted = st.form_submit_button("💾 Save Expense")
+            if submitted:
+                if item_name and cost > 0:
+                    st.success(f"✅ Logged: {item_name} (${cost})")
+                    st.balloons()
+                else:
+                    st.error("Please enter item and cost.")
+
+    # --- TAB 6: ASSETS ---
+    elif selected == "🏦 Assets & Debt":
+        st.title("🏦 Assets & Debt")
+        if assets:
+            st.dataframe(assets)
+        else:
+            st.info("No assets found in Google Sheet.")
+
+    # --- OTHER TABS (Placeholders) ---
+    else:
+        st.title(selected)
+        st.info("🚧 Module coming soon...")
+
+# --- 3. EXECUTION TRIGGER ---
+if __name__ == "__main__":
+    main()
+# --- END OF COMPLETE MAIN.PY ---
                 notes = st.text_area("Notes (Optional)")
 
             submitted = st.form_submit_button("💾 Save Expense")
