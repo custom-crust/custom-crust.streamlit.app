@@ -370,9 +370,6 @@ def main():
         st.info("🚧 Module coming soon...")
 
 # --- 3. EXECUTION TRIGGER ---
+git push
 if __name__ == "__main__":
     main()
-    git add main.py
-git commit -m "Full Restore Golden Master"
-git push
-commit
