@@ -53,49 +53,99 @@ def main():
     ]
     selected = st.sidebar.radio("Go to", options)
 
-    # --- TAB 1: DASHBOARD ---
     if selected == "📊 Dashboard":
         st.markdown("## 🚀 Business Command Center")
+
+        # --- A. ROBUST DATA FILTERING ---
+        # 1. Clean Column Names (Strip spaces from keys)
+        safe_assets = []
+        if 'assets' in locals() and assets:
+            for a in assets:
+                # Create a new dict with stripped keys
+                clean_a = {k.strip(): v for k, v in a.items()}
+                safe_assets.append(clean_a)
         
-        # 1. Calculate Live Cash
+        safe_expenses = []
+        if 'expenses_data' in locals() and expenses_data:
+            for e in expenses_data:
+                clean_e = {k.strip(): v for k, v in e.items()}
+                safe_expenses.append(clean_e)
+
+        # 2. Filter Liquid Assets
+        liquid_assets = []
+        for a in safe_assets:
+            # Check 'Type' case-insensitive
+            atype = str(a.get('Type') or a.get('type') or '').strip().lower()
+            if atype == 'liquid':
+                liquid_assets.append(a)
+
+        # 3. Calculate Live Balances
         live_balances = {}
         for asset in liquid_assets:
             name = str(asset.get('Account Name') or asset.get('name') or 'Unknown')
-            start_bal = clean_currency(asset.get('Balance') or asset.get('balance') or 0)
-            live_balances[name] = start_bal
-            
-        # 2. Subtract Expenses
+            val = clean_currency(asset.get('Balance') or asset.get('balance') or 0)
+            live_balances[name] = val
+
+        # 4. Subtract Expenses
         total_exp = 0.0
-        if expenses_data:
-            for exp in expenses_data:
+        if safe_expenses:
+            for exp in safe_expenses:
                 cost = clean_currency(exp.get('Cost') or exp.get('cost') or 0)
                 total_exp += cost
-                method = str(exp.get('Payment Method') or exp.get('payment_method') or '').strip().lower()
                 
-                # Deduct from asset if match found
+                # Payment Method Matching
+                method = str(exp.get('Payment Method') or exp.get('payment_method') or '').strip().lower()
                 for asset_name in live_balances:
                     if asset_name.lower() in method:
                         live_balances[asset_name] -= cost
 
-        # 3. Render Metrics
-        st.subheader("💰 Cash on Hand")
+        # --- B. VISUALS & METRICS ---
+        st.subheader("💰 Cash on Hand (Live)")
         if live_balances:
             cols = st.columns(len(live_balances))
             for idx, (name, val) in enumerate(live_balances.items()):
                 cols[idx].metric(label=name, value=f"${val:,.2f}")
         else:
-            st.info("No liquid assets found. Check Assets tab.")
+            st.warning("⚠️ No liquid assets found. Check if your Google Sheet has a column named 'Type' set to 'Liquid'.")
 
         st.divider()
-        
-        # 4. Profit Metrics
-        total_rev = 0.0 # Placeholder
+
+        # Profit Metrics
+        total_rev = 0.0 # Placeholder for Revenue logic
         net_profit = total_rev - total_exp
         
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Total Revenue", f"${total_rev:,.2f}")
-        c2.metric("Total Expenses", f"${total_exp:,.2f}")
-        c3.metric("Net Profit", f"${net_profit:,.2f}")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Total Revenue", f"${total_rev:,.2f}")
+        m2.metric("Total Expenses", f"${total_exp:,.2f}", delta="-")
+        m3.metric("Net Profit", f"${net_profit:,.2f}", delta=f"{net_profit:,.2f}")
+
+        st.divider()
+
+        # --- C. CHARTS ---
+        c1, c2 = st.columns(2)
+        with c1:
+            st.caption("Revenue Sources")
+            st.info("No sales data recorded yet.")
+            
+        with c2:
+            st.caption("Expense Breakdown")
+            if safe_expenses:
+                # Prepare data for Pie Chart
+                chart_data = []
+                for e in safe_expenses:
+                    cat = e.get('Category') or 'Uncategorized'
+                    amt = clean_currency(e.get('Cost') or 0)
+                    if amt > 0:
+                        chart_data.append({'Category': cat, 'Cost': amt})
+                
+                if chart_data:
+                    df_chart = pd.DataFrame(chart_data)
+                    fig = px.pie(df_chart, values='Cost', names='Category', hole=0.4)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No expenses > $0 to chart.")
+            else:
+                st.info("No expenses logged yet.")
 
     # --- TAB 2: PLANNER ---
     elif selected == "📅 Planner & Projections":
