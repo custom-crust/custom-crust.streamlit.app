@@ -179,10 +179,42 @@ menu_choice = st.sidebar.radio("Navigation",
 )
 st.sidebar.markdown("---")
 
-# --- 6. PAGE LOGIC ---
+def main():
+    st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
+    
+    # --- 1. ESTABLISH CONNECTION ---
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        # Load Raw Data (Force Fresh Load)
+        assets_df = conn.read(worksheet="Assets", ttl=0)
+        expenses_df = conn.read(worksheet="Expenses", ttl=0)
+        
+        # Convert to list of dicts for easy processing
+        assets = assets_df.to_dict('records')
+        expenses_data = expenses_df.to_dict('records')
+        
+        # Debug Success Message (Hidden unless needed)
+        # st.toast(f"Loaded {len(assets)} Assets and {len(expenses_data)} Expenses", icon="✅")
+        
+    except Exception as e:
+        st.error(f"🚨 CRITICAL DATA FAILURE: Could not connect to Google Sheets. Error: {e}")
+        st.stop() # Stop the app if data fails
 
-# 📊 DASHBOARD
-if menu_choice == "📊 Dashboard":
+    # --- 2. GLOBAL VARIABLES (Bridge for old code) ---
+    # Many parts of the app expect 'liquid_assets' to exist. Let's make it right here.
+    liquid_assets = []
+    if assets:
+        for a in assets:
+            # Case-insensitive check for 'Liquid'
+            atype = str(a.get('Type') or a.get('type') or a.get('classification') or '').strip().lower()
+            if atype == 'liquid':
+                liquid_assets.append(a)
+
+    # --- 6. PAGE LOGIC ---
+
+    # 📊 DASHBOARD
+    if menu_choice == "📊 Dashboard":
     st.markdown("## 🚀 Business Command Center")
 
     # --- 1. GET & PROCESS DATA LOCALLY ---
