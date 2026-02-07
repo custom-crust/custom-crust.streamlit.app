@@ -1,11 +1,4 @@
-st-gsheets-connection
-pandas
-plotly
-st-gsheets-connection
 streamlit
+st-gsheets-connection
 pandas
 plotly
-gspread
-google-auth
-
-# Force rebuild
