@@ -159,22 +159,24 @@ def main():
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
         
-        # Load Raw Data
-        assets = conn.read(worksheet="Assets", ttl=0).to_dict('records')
-        expenses_data = conn.read(worksheet="Expenses", ttl=0).to_dict('records')
+        # Load Raw Data (Force Fresh Load)
+        assets_df = conn.read(worksheet="Assets", ttl=0)
+        expenses_df = conn.read(worksheet="Expenses", ttl=0)
         
-        # Normalize Data (Fix Capitalization/Spaces)
-        # This creates a safe 'liquid_assets' list for the rest of the app
+        # Convert to list of dicts
+        assets = assets_df.to_dict('records')
+        expenses_data = expenses_df.to_dict('records')
+        
+        # Create 'liquid_assets' for the rest of the app
         liquid_assets = []
         if assets:
             for a in assets:
-                # robust check for 'Type', 'type', 'Classification', etc.
+                # Robust case-insensitive check
                 atype = str(a.get('Type') or a.get('type') or a.get('classification') or '').strip().lower()
                 if atype == 'liquid':
                     liquid_assets.append(a)
 
     except Exception as e:
-        # Graceful failure if sheet connection drops
         st.error(f"🚨 Data Connection Error: {e}")
         st.stop()
 
