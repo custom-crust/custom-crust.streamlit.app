@@ -218,93 +218,53 @@ if menu_choice == "📊 Dashboard":
             assets.append(dict(row))
     clean_assets = normalize_asset_data(assets)
 
-    # 2. Filter for Liquid Assets
-    liquid_assets = [a for a in clean_assets if 'liquid' in str(a['type']).lower()]
-
-    # 3. Find Specific Accounts (Loose matching to catch "Northern Bank Initial Balance")
-    northern_bank = next((a for a in liquid_assets if "northern bank" in a['name'].lower()), None)
-    cash = next((a for a in liquid_assets if "cash" in a['name'].lower()), None)
-    # 1. Initialize balances from Assets Sheet
-    asset_balances = {}
-    if 'liquid_assets' in locals():
-        for asset in liquid_assets:
-            name = asset.get('name', 'Unknown')
-            # Use our helper to get the raw number
-            start_bal = clean_currency(asset.get('value', 0) or asset.get('balance', 0))
-            asset_balances[name] = start_bal
-
-    # 2. Subtract Expenses (The Live Math)
-    if 'expenses_data' in locals() and expenses_data:
-        for expense in expenses_data:
-            # Get Payment Method and Cost
-            pay_method = str(expense.get('Payment Method') or expense.get('payment_method') or '').strip()
-            cost = clean_currency(expense.get('Cost') or expense.get('cost') or 0)
-            
-            # If the Payment Method matches an Asset Name, subtract the cost
-            for asset_name in asset_balances:
-                if asset_name.lower() in pay_method.lower():
-                    asset_balances[asset_name] -= cost
-
-    # 3. Render the Dashboard Cards
     st.subheader("💰 Cash on Hand (Live)")
+
+    # 1. Initialize Balances from Assets
+    live_balances = {}
+    # Check if liquid_assets exists to avoid crashes
+    safe_assets = locals().get('liquid_assets', [])
     
-    # Safety check if we have assets to show
-    if asset_balances:
-        cols = st.columns(len(asset_balances))
-        for idx, (name, live_val) in enumerate(asset_balances.items()):
-            cols[idx].metric(
-                label=name, 
-                value=f"${live_val:,.2f}"
-            )
-    else:
-        st.info("No liquid assets found. Check your Assets table.")
-                # Match the "Payment Method" to the "Asset Name"
-                pay_method = str(expense.get('Payment Method') or expense.get('payment_method')).strip()
-                cost = clean_currency(expense.get('Cost') or expense.get('cost') or 0)
+    for asset in safe_assets:
+        # Get Name
+        name = str(asset.get('name', 'Unknown')).strip()
+        
+        # Get Start Balance (Clean the $)
+        raw_val = str(asset.get('value', 0) or asset.get('balance', 0)).replace('$', '').replace(',', '')
+        try:
+            start_bal = float(raw_val)
+        except ValueError:
+            start_bal = 0.0
             
-                # If this expense was paid by one of our liquid assets, subtract it
-                # We use simple string matching (you might want to make this fuzzy later)
-                for asset_name in asset_balances:
-                    if asset_name.lower() in pay_method.lower():
-                        asset_balances[asset_name] -= cost
+        live_balances[name] = start_bal
 
-        # 3. Render Dashboard with Calculated Values
-        st.subheader("💰 Cash on Hand (Live)")
-        cols = st.columns(len(liquid_assets)) if liquid_assets else [st.empty()]
-
-        for idx, asset in enumerate(liquid_assets):
-            name = asset['name']
-            live_value = asset_balances.get(name, 0.0)
-        
-            # Color logic: Red if negative, Green if positive
-            delta_color = "normal" if live_value >= 0 else "inverse"
-        
-            cols[idx].metric(
-                label=name, 
-                value=f"${live_value:,.2f}",
-                delta=f"Initial: ${clean_currency(asset.get('balance', 0)):,.2f}"
-            )
-
-        st.caption("Live Balance = Initial Sheet Balance - Logged Expenses")
-
-    # 5. Fix the Deposit Dropdown
-    deposit_options = [a['name'] for a in liquid_assets]
-    st.divider() # Visual separation before Revenue/Expenses
-
-    # Top Metrics
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("💰 Total Revenue", f"${total_rev:,.0f}")
-    c2.metric("💸 Total Expenses", f"${total_exp:,.0f}")
-    c3.metric("📈 Net Profit", f"${total_rev - total_exp:,.0f}", delta=total_rev - total_exp)
-    c4.metric("🏛️ Business Equity", f"${total_assets - total_debt:,.0f}", delta=f"Debt: ${total_debt:,.0f}", delta_color="off")
-
-
-
-    st.markdown("---")
+    # 2. Subtract Expenses (Live Math)
+    # Check if expenses_data exists
+    safe_expenses = locals().get('expenses_data', [])
     
-    # Charts
-    c_op1, c_op2 = st.columns(2)
-    with c_op1:
+    for exp in safe_expenses:
+        # Get Payment Method & Cost
+        method = str(exp.get('Payment Method') or exp.get('payment_method') or '').strip().lower()
+        raw_cost = str(exp.get('Cost') or exp.get('cost') or '0').replace('$', '').replace(',', '')
+        try:
+            cost_val = float(raw_cost)
+        except ValueError:
+            cost_val = 0.0
+            
+        # If Payment Method matches an Asset, subtract the cost
+        for asset_name in live_balances:
+            if asset_name.lower() in method:
+                live_balances[asset_name] -= cost_val
+
+    # 3. Render Cards
+    if live_balances:
+        cols = st.columns(len(live_balances))
+        for idx, (name, val) in enumerate(live_balances.items()):
+            cols[idx].metric(label=name, value=f"${val:,.2f}")
+    else:
+        st.info("No liquid assets found (Cash/Bank). Check your Assets tab.")
+    
+    st.divider()
         st.caption("Revenue Sources")
         if total_rev > 0 and "Type" in df_sales.columns:
             fig = px.pie(df_sales, values="Clean_Rev", names="Type", hole=0.5, color_discrete_sequence=px.colors.qualitative.Pastel)
