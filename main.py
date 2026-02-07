@@ -1,8 +1,31 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
-import pandas as pd
-import plotly.express as px
-from datetime import datetime
+import subprocess
+import sys
+import time
+
+# Function to force-install missing libraries inside the running app
+def install_package(package):
+    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+# Try to import. If it fails, install it and restart.
+try:
+    from streamlit_gsheets import GSheetsConnection
+    import pandas as pd
+    import plotly.express as px
+except ModuleNotFoundError as e:
+    st.warning(f"⚙️ Fixing startup error: {e.name} not found. Installing now...")
+    # Map import names to install names
+    if 'streamlit_gsheets' in str(e):
+        install_package('st-gsheets-connection')
+    elif 'pandas' in str(e):
+        install_package('pandas')
+    elif 'plotly' in str(e):
+        install_package('plotly')
+    
+    st.success("✅ Installed! Restarting app...")
+    time.sleep(1)
+    st.rerun()
+# --- END SELF-HEALING IMPORTS ---
 # --- HELPER FUNCTIONS (Flush Left) ---
 def clean_currency(value):
     """Converts string currency (e.g. '$1,200.50') into a float."""
