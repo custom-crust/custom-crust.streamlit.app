@@ -334,7 +334,6 @@ def main():
             else:
                 st.info("No expenses to chart.")
 
-# 🧾 INVOICE GENERATOR (SIMPLIFIED & ROBUST)
 elif menu_choice == "🧾 Invoice Generator":
     st.header("Invoice Builder")
     
@@ -425,7 +424,6 @@ elif menu_choice == "🧾 Invoice Generator":
     else:
         st.info("No items added yet.")
 
-# 📅 PLANNER
 elif menu_choice == "📅 Planner & Projections":
     st.header("Future Event Planner")
     
@@ -476,7 +474,6 @@ elif menu_choice == "📅 Planner & Projections":
     else:
         st.info("No events planned yet.")
 
-# 💰 SALES & REVENUE
 elif menu_choice == "💰 Sales & Revenue":
     st.header("Log Sales Revenue")
     df_sales = load_data(sales_sheet)
@@ -510,7 +507,6 @@ elif menu_choice == "💰 Sales & Revenue":
         st.subheader("Recent Sales")
         st.dataframe(df_sales.tail(5).iloc[::-1][["Event", "Type", "Revenue", "Date"]], use_container_width=True, hide_index=True)
 
-# 📝 LOG EXPENSES
 elif menu_choice == "📝 Log Expenses":
     st.header("Log Business Expenses")
     df_exp = load_data(ledger_sheet)
@@ -558,7 +554,6 @@ elif menu_choice == "📝 Log Expenses":
         st.subheader("Recent Expenses")
         st.dataframe(df_exp.tail(5).iloc[::-1][["Item", "Category", "Cost", "Date"]], use_container_width=True, hide_index=True)
 
-# 🏦 ASSETS & DEBT
 elif menu_choice == "🏦 Assets & Debt":
     st.header("Assets & Liability Tracker")
     tab_debt, tab_assets = st.tabs(["📉 Manage Debt", "💵 Manage Assets"])
@@ -630,7 +625,6 @@ elif menu_choice == "🏦 Assets & Debt":
             st.success(f"Deposit of ${deposit_amt:,.2f} added to {deposit_asset}.")
             st.rerun()
 
-# 🤝 VENDOR NETWORK
 elif menu_choice == "🤝 Vendor Network":
     st.header("Vendor Directory")
     with st.expander("➕ Add Vendor"):
@@ -650,7 +644,6 @@ elif menu_choice == "🤝 Vendor Network":
     if not df_v.empty: st.dataframe(df_v, use_container_width=True)
     else: st.info("No vendors yet.")
 
-# 🍕 MENU EDITOR
 elif menu_choice == "🍕 Menu Editor":
     st.header("Menu Manager")
     df_m = load_data(menu_sheet)
@@ -661,7 +654,6 @@ elif menu_choice == "🍕 Menu Editor":
         menu_sheet.append_rows(edited.values.tolist())
         st.success("Menu Saved!")
 
-# 🍳 RECIPE COSTING
 elif menu_choice == "🍳 Recipe Costing":
     st.header("Recipe Calculator")
     df_i = load_data(ing_sheet)
@@ -702,7 +694,6 @@ elif menu_choice == "🍳 Recipe Costing":
                     st.rerun()
         else: st.warning("Pantry is empty.")
 
-# 🗄️ DOCUMENT VAULT
 elif menu_choice == "🗄️ Document Vault":
     st.header("Document Vault")
     with st.form("doc_form"):
