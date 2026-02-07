@@ -183,65 +183,28 @@ st.sidebar.markdown("---")
 
 # 📊 DASHBOARD
 if menu_choice == "📊 Dashboard":
-    st.title("🚀 Business Command Center")
-    st.markdown("###")
-    
+    st.markdown("## 🚀 Business Command Center")
 
-    # --- HELPER: DATA NORMALIZER ---
-    def normalize_asset_data(raw_data):
-        """Converts all keys to lowercase and cleans currency values."""
-        normalized = []
-        for row in raw_data:
-            clean_row = {}
-            # 1. Lowercase all keys (e.g. 'Balance' -> 'balance')
-            for k, v in row.items():
-                clean_row[k.lower().strip()] = v
-            # 2. Extract key fields safely
-            clean_row['name'] = clean_row.get('account name') or clean_row.get('item name') or clean_row.get('name') or "Unknown"
-            clean_row['type'] = clean_row.get('type') or clean_row.get('classification') or clean_row.get('category') or ""
-            # 3. Clean Currency Math
-            raw_val = clean_row.get('balance') or clean_row.get('initial balance') or clean_row.get('cost') or "0"
-            if isinstance(raw_val, str):
-                raw_val = raw_val.replace('$', '').replace(',', '').strip()
-            try:
-                clean_row['value'] = float(raw_val)
-            except:
-                clean_row['value'] = 0.0
-            normalized.append(clean_row)
-        return normalized
-
-    # --- DASHBOARD LOGIC ---
-    # 1. Process the data
-    assets = []
-    if not df_assets.empty:
-        for idx, row in df_assets.iterrows():
-            assets.append(dict(row))
-    clean_assets = normalize_asset_data(assets)
-
-    st.subheader("💰 Cash on Hand (Live)")
-
-    # 1. Initialize Balances from Assets
+    # --- 1. CALCULATE LIVE CASH ON HAND ---
+    # Initialize dictionary to hold live balances
     live_balances = {}
-    # Check if liquid_assets exists to avoid crashes
-    safe_assets = locals().get('liquid_assets', [])
     
+    # Safely get assets data
+    safe_assets = locals().get('liquid_assets', [])
+    safe_expenses = locals().get('expenses_data', [])
+
+    # Step A: Load Initial Balances
     for asset in safe_assets:
-        # Get Name
         name = str(asset.get('name', 'Unknown')).strip()
-        
-        # Get Start Balance (Clean the $)
+        # Clean currency string -> float
         raw_val = str(asset.get('value', 0) or asset.get('balance', 0)).replace('$', '').replace(',', '')
         try:
             start_bal = float(raw_val)
         except ValueError:
             start_bal = 0.0
-            
         live_balances[name] = start_bal
 
-    # 2. Subtract Expenses (Live Math)
-    # Check if expenses_data exists
-    safe_expenses = locals().get('expenses_data', [])
-    
+    # Step B: Subtract Expenses (The Math)
     for exp in safe_expenses:
         # Get Payment Method & Cost
         method = str(exp.get('Payment Method') or exp.get('payment_method') or '').strip().lower()
@@ -251,34 +214,63 @@ if menu_choice == "📊 Dashboard":
         except ValueError:
             cost_val = 0.0
             
-        # If Payment Method matches an Asset, subtract the cost
+        # If the Payment Method matches an Asset Name, subtract the cost
         for asset_name in live_balances:
             if asset_name.lower() in method:
                 live_balances[asset_name] -= cost_val
 
-    # 3. Render Cards
+    # --- 2. RENDER CASH ON HAND SECTION ---
+    st.subheader("💰 Cash on Hand")
     if live_balances:
         cols = st.columns(len(live_balances))
         for idx, (name, val) in enumerate(live_balances.items()):
             cols[idx].metric(label=name, value=f"${val:,.2f}")
     else:
         st.info("No liquid assets found (Cash/Bank). Check your Assets tab.")
-    
-    st.divider()
-        st.caption("Revenue Sources")
-        if total_rev > 0 and "Type" in df_sales.columns:
-            fig = px.pie(df_sales, values="Clean_Rev", names="Type", hole=0.5, color_discrete_sequence=px.colors.qualitative.Pastel)
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
-            st.plotly_chart(fig, use_container_width=True)
-        else: st.info("No sales data yet.")
 
-    with c_op2:
+    st.divider()
+
+    # --- 3. RENDER STANDARD METRICS (REVENUE/EXPENSE) ---
+    # Safe Fallbacks for metric calculation
+    total_rev = 0.0
+    total_exp = 0.0
+    
+    if safe_expenses:
+        total_exp = sum([float(str(e.get('Cost',0)).replace('$','').replace(',','')) for e in safe_expenses if e.get('Cost')])
+
+    # Calculate Net Profit
+    net_profit = total_rev - total_exp
+    
+    # Metrics Row
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Total Revenue", f"${total_rev:,.0f}")
+    m2.metric("Total Expenses", f"${total_exp:,.0f}")
+    m3.metric("Net Profit", f"${net_profit:,.0f}", delta=f"{net_profit:,.0f}")
+
+    st.divider()
+
+    # --- 4. RENDER CHARTS ---
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        st.caption("Revenue Sources")
+        st.info("No sales data yet.") # Placeholder until sales module is active
+        
+    with c2:
         st.caption("Expense Breakdown")
-        if total_exp > 0 and "Category" in df_exp.columns:
-            fig = px.pie(df_exp, values="Clean_Cost", names="Category", hole=0.5, color_discrete_sequence=px.colors.qualitative.Vivid)
-            fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="white"))
-            st.plotly_chart(fig, use_container_width=True)
-        else: st.info("No expense data yet.")
+        if safe_expenses:
+            import pandas as pd
+            import plotly.express as px
+            
+            df_exp_chart = pd.DataFrame(safe_expenses)
+            # Ensure 'Cost' is numeric for the chart
+            df_exp_chart['NumericCost'] = df_exp_chart['Cost'].astype(str).str.replace('$','').str.replace(',','').astype(float)
+            
+            if not df_exp_chart.empty:
+                fig = px.pie(df_exp_chart, values='NumericCost', names='Category', hole=0.4)
+                st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No expenses logged yet.")
 
 # 🧾 INVOICE GENERATOR (SIMPLIFIED & ROBUST)
 elif menu_choice == "🧾 Invoice Generator":
