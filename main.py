@@ -32,33 +32,8 @@ def connect_to_gsheets():
     # Try to find the secret key (UPPERCASE or lowercase)
     if "GCP_SERVICE_ACCOUNT" in st.secrets:
         creds_dict = st.secrets["GCP_SERVICE_ACCOUNT"]
-    elif "gcp_service_account" in st.secrets:
-        creds_dict = st.secrets["gcp_service_account"]
-    elif "gsheets" in st.secrets:
-        creds_dict = st.secrets["gsheets"]
-    else:
-        st.error("🚨 Secrets Error: Could not find 'GCP_SERVICE_ACCOUNT' in secrets.")
-        st.stop()
-    
-    creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-    client = gspread.authorize(creds)
-    
-    try:
-        sheet = client.open("Custom Crust Kitchen - Master Ledger")
-        return sheet
-    except Exception as e:
-        st.error(f"🚨 Connection Error: {e}")
-        st.stop()
 
-sheet = connect_to_gsheets()
-
-# Helper: Get Worksheet (Lazy Loading - Prevents API Crashes)
-def get_worksheet(name, headers):
-    try:
-        return sheet.worksheet(name)
-    except gspread.WorksheetNotFound:
-        ws = sheet.add_worksheet(title=name, rows=100, cols=20)
-        ws.append_row(headers)
+    # --- TAB 2: PLANNER ---
         return ws
     except Exception:
         return None
