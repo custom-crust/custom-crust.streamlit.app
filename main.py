@@ -162,6 +162,7 @@ def main():
         st.title("💰 Sales & Revenue")
         st.info("Coming soon...")
 
+    # --- TAB 5: LOG EXPENSES ---
     elif selected == "📝 Log Expenses":
         st.markdown("## 📝 Log Business Expenses")
         
@@ -181,12 +182,14 @@ def main():
                 date = st.date_input("Date", datetime.today())
                 
                 # Dynamic Payment Method (Links to Assets)
-                # We rebuild the safe asset list locally to ensure dropdown works
                 pay_options = ["External / Cash"]
                 if 'assets' in locals() and assets:
                     for a in assets:
-                        aname = str(a.get('Account Name') or a.get('name') or '').strip()
-                        atype = str(a.get('Type') or '').strip().lower()
+                        # Clean asset keys just in case
+                        safe_a = {k.strip(): v for k, v in a.items()}
+                        aname = str(safe_a.get('Account Name') or safe_a.get('name') or '').strip()
+                        atype = str(safe_a.get('Type') or '').strip().lower()
+                        
                         if aname and atype == 'liquid':
                             pay_options.append(aname)
                             
@@ -197,8 +200,6 @@ def main():
             
             if submitted:
                 if item_name and cost > 0:
-                    # In a full app, we would write this back to Google Sheets here.
-                    # For now, we show a success message to confirm UI works.
                     st.success(f"✅ Logged: {item_name} (${cost}) via {payment_method}")
                     st.balloons()
                 else:
