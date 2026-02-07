@@ -1,28 +1,16 @@
-def load_data():
-    """Safe data loader outside of main loop"""
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        assets = conn.read(worksheet="Assets", ttl=0).to_dict('records')
-        expenses = conn.read(worksheet="Expenses", ttl=0).to_dict('records')
-        return assets, expenses
-    except Exception:
-        return [], []
+
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 import plotly.express as px
-import gspread
-from google.oauth2.service_account import Credentials
-import datetime
-import random
-import time
+from datetime import datetime
 
-# --- Currency Cleaner Helper ---
+# --- HELPER FUNCTIONS (Flush Left) ---
 def clean_currency(value):
-    """Converts string currency (e.g. '$1,200.50') into a clean float (1200.50)"""
+    """Converts string currency (e.g. '$1,200.50') into a float."""
     if isinstance(value, (int, float)):
         return float(value)
     if isinstance(value, str):
-        # Remove '$' and ',' and whitespace
         clean_str = value.replace('$', '').replace(',', '').strip()
         try:
             return float(clean_str) if clean_str else 0.0
@@ -30,33 +18,34 @@ def clean_currency(value):
             return 0.0
     return 0.0
 
-# --- 1. SETUP PAGE CONFIGURATION ---
-st.set_page_config(page_title="Custom Crust HQ", page_icon="🍕", layout="wide")
-
-# --- 2. CONNECT TO GOOGLE SHEETS (Smart Auth) ---
-@st.cache_resource
-def connect_to_gsheets():
-    scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    
-    # Try to find the secret key (UPPERCASE or lowercase)
-    if "GCP_SERVICE_ACCOUNT" in st.secrets:
-        creds_dict = st.secrets["GCP_SERVICE_ACCOUNT"]
-
-    # --- TAB 2: PLANNER ---
-        return ws
-    except Exception:
-        return None
-
-# Helper: Load Data Safely
-def load_data(sheet_obj):
-    if sheet_obj is None: return pd.DataFrame()
+def load_data():
+    """Safe data loader outside of main loop"""
     try:
-        data = sheet_obj.get_all_values()
-        if len(data) < 2: return pd.DataFrame()
-        headers = [str(h).strip().title() for h in data[0]]
-        return pd.DataFrame(data[1:], columns=headers)
-    except:
-        return pd.DataFrame()
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        assets = conn.read(worksheet="Assets", ttl=0).to_dict('records')
+        expenses = conn.read(worksheet="Expenses", ttl=0).to_dict('records')
+        return assets, expenses
+    except Exception as e:
+        # Return empty lists if connection fails so app doesn't crash
+        return [], []
+
+# --- MAIN APP ---
+def main():
+    st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
+
+    # 1. Load Data (Simple Call - No Try/Except needed here)
+    assets, expenses_data = load_data()
+
+    # 2. Process Liquid Assets (Global Bridge)
+    liquid_assets = []
+    if assets:
+        for a in assets:
+            atype = str(a.get('Type') or a.get('type') or '').strip().lower()
+            if atype == 'liquid':
+                liquid_assets.append(a)
+
+    # 3. Sidebar Navigation
+    st.sidebar.title("Navigation")
 
 # Initialize Sheets (Connection Only - No Data Load Yet)
 ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date", "Payment Source"])
