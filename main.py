@@ -4,6 +4,8 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime
 
+if __name__ == "__main__":
+    main()
 # --- HELPER FUNCTIONS (Flush Left) ---
 def clean_currency(value):
     """Converts string currency (e.g. '$1,200.50') into a float."""
