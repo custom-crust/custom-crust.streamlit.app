@@ -7,3 +7,5 @@ pandas
 plotly
 gspread
 google-auth
+
+# Force rebuild
