@@ -1,32 +1,145 @@
 import streamlit as st
-import subprocess
-import sys
-import time
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
+import plotly.express as px
+from datetime import datetime
 
-# Function to force-install missing libraries inside the running app
-def install_package(package):
-    subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+# --- 1. HELPER FUNCTIONS ---
+def load_data():
+    """Safe data loader that won't crash the app if sheets are empty."""
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        assets = conn.read(worksheet="Assets", ttl=0).to_dict('records')
+        expenses = conn.read(worksheet="Expenses", ttl=0).to_dict('records')
+        return assets, expenses
+    except Exception as e:
+        return [], []
 
-# Try to import. If it fails, install it and restart.
-try:
-    from streamlit_gsheets import GSheetsConnection
-    import pandas as pd
-    import plotly.express as px
-except ModuleNotFoundError as e:
-    st.warning(f"⚙️ Fixing startup error: {e.name} not found. Installing now...")
-    # Map import names to install names
-    if 'streamlit_gsheets' in str(e):
-        install_package('st-gsheets-connection')
-    elif 'pandas' in str(e):
-        install_package('pandas')
-    elif 'plotly' in str(e):
-        install_package('plotly')
+def clean_currency(value):
+    """Converts money strings like '$1,200.50' to float 1200.50"""
+    if isinstance(value, (int, float)):
+        return float(value)
+    return float(str(value).replace('$', '').replace(',', '').strip() or 0)
+
+# --- 2. MAIN APPLICATION ---
+def main():
+    st.set_page_config(page_title="Custom Crust HQ", layout="wide", page_icon="🍕")
     
-    st.success("✅ Installed! Restarting app...")
-    time.sleep(1)
-    st.rerun()
-# --- END SELF-HEALING IMPORTS ---
-# --- HELPER FUNCTIONS (Flush Left) ---
+    # Load Data Immediately
+    assets, expenses_data = load_data()
+    
+    # Process Liquid Assets (Safe Logic)
+    liquid_assets = []
+    if assets:
+        for a in assets:
+            # Check for 'Type', 'type', 'Classification' safely
+            atype = str(a.get('Type') or a.get('type') or '').strip().lower()
+            if atype == 'liquid':
+                liquid_assets.append(a)
+
+    # --- SIDEBAR ---
+    st.sidebar.title("Navigation")
+    options = [
+        "📊 Dashboard", 
+        "📅 Planner & Projections", 
+        "🧾 Invoice Generator", 
+        "💰 Sales & Revenue", 
+        "📝 Log Expenses", 
+        "🏦 Assets & Debt", 
+        "🤝 Vendor Network", 
+        "🍕 Menu Editor", 
+        "🍳 Recipe Costing", 
+        "🗄️ Document Vault"
+    ]
+    selected = st.sidebar.radio("Go to", options)
+
+    # --- TAB 1: DASHBOARD ---
+    if selected == "📊 Dashboard":
+        st.markdown("## 🚀 Business Command Center")
+        
+        # 1. Calculate Live Cash
+        live_balances = {}
+        for asset in liquid_assets:
+            name = str(asset.get('Account Name') or asset.get('name') or 'Unknown')
+            start_bal = clean_currency(asset.get('Balance') or asset.get('balance') or 0)
+            live_balances[name] = start_bal
+            
+        # 2. Subtract Expenses
+        total_exp = 0.0
+        if expenses_data:
+            for exp in expenses_data:
+                cost = clean_currency(exp.get('Cost') or exp.get('cost') or 0)
+                total_exp += cost
+                method = str(exp.get('Payment Method') or exp.get('payment_method') or '').strip().lower()
+                
+                # Deduct from asset if match found
+                for asset_name in live_balances:
+                    if asset_name.lower() in method:
+                        live_balances[asset_name] -= cost
+
+        # 3. Render Metrics
+        st.subheader("💰 Cash on Hand")
+        if live_balances:
+            cols = st.columns(len(live_balances))
+            for idx, (name, val) in enumerate(live_balances.items()):
+                cols[idx].metric(label=name, value=f"${val:,.2f}")
+        else:
+            st.info("No liquid assets found. Check Assets tab.")
+
+        st.divider()
+        
+        # 4. Profit Metrics
+        total_rev = 0.0 # Placeholder
+        net_profit = total_rev - total_exp
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Revenue", f"${total_rev:,.2f}")
+        c2.metric("Total Expenses", f"${total_exp:,.2f}")
+        c3.metric("Net Profit", f"${net_profit:,.2f}")
+
+    # --- TAB 2: PLANNER ---
+    elif selected == "📅 Planner & Projections":
+        st.title("📅 Planner & Projections")
+        st.info("Coming soon...")
+
+    # --- TAB 3: INVOICE GENERATOR ---
+    elif selected == "🧾 Invoice Generator":
+        st.title("🧾 Invoice Generator")
+        st.info("Coming soon...")
+
+    # --- TAB 4: SALES ---
+    elif selected == "💰 Sales & Revenue":
+        st.title("💰 Sales & Revenue")
+        st.info("Coming soon...")
+
+    # --- TAB 5: LOG EXPENSES ---
+    elif selected == "📝 Log Expenses":
+        st.title("📝 Log Expenses")
+        with st.form("quick_expense"):
+            st.write("Quick Log")
+            item = st.text_input("Item")
+            cost = st.number_input("Cost", min_value=0.0)
+            submitted = st.form_submit_button("Save")
+            if submitted:
+                st.success(f"Logged {item} for ${cost}")
+
+    # --- TAB 6: ASSETS ---
+    elif selected == "🏦 Assets & Debt":
+        st.title("🏦 Assets")
+        if assets:
+            st.dataframe(assets)
+        else:
+            st.warning("No assets data found.")
+
+    # --- OTHER TABS (Placeholders) ---
+    else:
+        st.title(selected)
+        st.info("Module under construction.")
+
+# --- 3. EXECUTION TRIGGER (CRITICAL) ---
+if __name__ == "__main__":
+    main()
+# --- END OF COMPLETE MAIN.PY ---
 def clean_currency(value):
     """Converts string currency (e.g. '$1,200.50') into a float."""
     if isinstance(value, (int, float)):
