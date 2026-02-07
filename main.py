@@ -45,247 +45,43 @@ def main():
                 liquid_assets.append(a)
 
     # 3. Sidebar Navigation
+elif menu_choice == "🧾 Invoice Generator":
     st.sidebar.title("Navigation")
-
-# Initialize Sheets (Connection Only - No Data Load Yet)
-ledger_sheet = get_worksheet("Ledger", ["Item", "Category", "Cost", "Date", "Payment Source"])
-sales_sheet = get_worksheet("Sales", ["Event", "Type", "Revenue", "Date"])
-assets_sheet = get_worksheet("Assets", ["Account Name", "Type", "Classification", "Initial Balance", "Balance", "Last Updated"])
-deposits_sheet = get_worksheet("Deposits", ["Date", "Amount", "Asset Name", "Notes"])
-debt_sheet = get_worksheet("Debt_Log", ["Loan Name", "Transaction Type", "Amount", "Date"])
-planner_sheet = get_worksheet("Planner", ["Event Name", "Date", "Projected Revenue", "Status"])
-vendor_sheet = get_worksheet("Vendors", ["Company Name", "Contact Person", "Phone", "Email", "Address", "Category"])
-menu_sheet = get_worksheet("Menu", ["Item Name", "Description", "Price", "Category"])
-ing_sheet = get_worksheet("Ingredients", ["Item Name", "Bulk Unit", "Bulk Cost", "Unit Cost"])
-vault_sheet = get_worksheet("Vault_Index", ["Document Name", "Type", "Link", "Date"])
-invoice_sheet = get_worksheet("Invoices", ["Invoice ID", "Client Name", "Date", "Total Amount", "Status"])
-
-# --- 3. CUSTOM CSS (FINAL THEME) ---
-st.markdown("""
-<style>
-    /* Main Background */
-    .stApp, [data-testid="stSidebar"] {
-        background-color: #0e0e0e;
-        background-image: radial-gradient(#262626 1px, transparent 0);
-        background-size: 20px 20px;
-    }
-    [data-testid="stSidebar"] { border-right: 1px solid #333; }
-
-    /* Neon Logo Text */
-    .sidebar-logo {
-        font-family: 'Arial Black', sans-serif;
-        font-size: 24px !important;
-        line-height: 1.2;
-        text-transform: uppercase;
-        color: #fff;
-        text-align: center;
-        margin-bottom: 25px;
-        margin-top: 10px;
-        text-shadow: 0 0 10px rgba(255, 75, 75, 0.9), 0 0 20px rgba(255, 75, 75, 0.6);
-        letter-spacing: 1px;
-    }
     
-    /* Boxy Sidebar Buttons */
-    [data-testid="stSidebar"] div[role="radiogroup"] { display: flex; flex-direction: column; gap: 12px; }
-    [data-testid="stSidebar"] label[data-baseweb="radio"] {
-        background: rgba(22, 22, 22, 0.8);
-        backdrop-filter: blur(5px);
-        border: 1px solid #333;
-        border-radius: 8px;
-        padding: 15px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        color: #aaa;
-        margin-bottom: 0px !important;
-        transition: all 0.2s ease;
-    }
-    [data-testid="stSidebar"] label[data-baseweb="radio"]:hover {
-        border-color: #FF4B4B; background: #1e1e1e; color: #fff; transform: scale(1.02);
-    }
-
-    /* Metric Cards */
-    [data-testid="stMetric"] {
-        background: rgba(22, 22, 22, 0.8);
-        backdrop-filter: blur(5px);
-        border: 1px solid #333;
-        border-radius: 8px;
-        padding: 20px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-    }
-    [data-testid="stMetric"]:hover { border-color: #FF4B4B; }
-    [data-testid="stMetricLabel"] { color: #888 !important; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
-    [data-testid="stMetricValue"] { color: #fff !important; font-size: 26px; font-weight: 700; }
-    
-    h1, h2, h3 { color: #fff !important; }
-    p, span, div { color: #ccc; }
-    hr { border: 0; height: 1px; background: #333; margin: 20px 0; }
-    .st-emotion-cache-16idsys p { text-align: center; width: 100%; color: #666 !important; font-size: 10px; letter-spacing: 2px; font-weight: 700; margin-bottom: 10px; }
-</style>
-""", unsafe_allow_html=True)
-
-# --- 4. GLOBAL HELPERS ---
-def clean_money(val):
-    if isinstance(val, (int, float)): return float(val)
-    if isinstance(val, str):
-        clean = val.replace('$', '').replace(',', '').strip()
-        if not clean: return 0.0
-        try: return float(clean)
-        except: return 0.0
-    return 0.0
-
-# --- 5. SIDEBAR NAVIGATION ---
-st.sidebar.markdown('<p class="sidebar-logo">🍕 CUSTOM CRUST<br>HQ 🍕</p>', unsafe_allow_html=True)
-st.sidebar.markdown("---")
-st.sidebar.markdown("**COMMAND CENTER**") 
-menu_choice = st.sidebar.radio("Navigation", 
-    [
+    # 1. Define Menu Options
+    options = [
         "📊 Dashboard", 
-        "📅 Planner & Projections",
-        "🧾 Invoice Generator",
+        "📅 Planner & Projections", 
+        "🧾 Invoice Generator", 
         "💰 Sales & Revenue", 
         "📝 Log Expenses", 
         "🏦 Assets & Debt", 
-        "🤝 Vendor Network",
-        "🍕 Menu Editor",
+        "🤝 Vendor Network", 
+        "🍕 Menu Editor", 
         "🍳 Recipe Costing", 
         "🗄️ Document Vault"
-    ], label_visibility="collapsed"
-)
-st.sidebar.markdown("---")
-
-def main():
-    # --- 1. LOAD DATA ---
-    assets, expenses_data = load_data()
-    
-    # Create liquid assets list
-    liquid_assets = [
-        a for a in assets 
-        if str(a.get('Type') or a.get('type') or '').strip().lower() == 'liquid'
     ]
+    
+    # 2. Create Sidebar Radio
+    selected = st.sidebar.radio("Go to", options)
 
-    # --- 6. PAGE LOGIC ---
-
-    # 📊 DASHBOARD
-    if menu_choice == "📊 Dashboard":
+    # --- TAB 1: DASHBOARD ---
+    if selected == "📊 Dashboard":
         st.markdown("## 🚀 Business Command Center")
 
-        # --- 1. GET & PROCESS DATA LOCALLY ---
-        # Retrieve raw data from global scope or session state
-        raw_assets = locals().get('assets', []) or globals().get('assets', [])
-        raw_expenses = locals().get('expenses_data', []) or globals().get('expenses_data', [])
+        # A. Get Data
+        # 'assets' and 'expenses_data' come from the load_data() function we added earlier
+        safe_assets = locals().get('assets', []) or []
+        safe_expenses = locals().get('expenses_data', []) or []
 
-        # Filter for Liquid Assets (Case-insensitive check for 'Liquid')
+        # B. Filter Liquid Assets
         liquid_assets = []
-        for a in raw_assets:
-            # Check all possible keys for 'Type'
-            atype = str(a.get('Type') or a.get('type') or a.get('classification') or '').strip().lower()
+        for a in safe_assets:
+            atype = str(a.get('Type') or a.get('type') or '').strip().lower()
             if atype == 'liquid':
                 liquid_assets.append(a)
 
-        # --- 2. CALCULATE LIVE BALANCES ---
-        live_balances = {}
-        
-        # Step A: Load Initial Balances
-        for asset in liquid_assets:
-            # Get Name (Handle 'Account Name' vs 'name')
-            name = str(asset.get('Account Name') or asset.get('name') or 'Unknown').strip()
-            
-            # Get Balance (Clean '$' and ',')
-            raw_val = str(asset.get('Balance') or asset.get('balance') or asset.get('value') or '0')
-            clean_val = raw_val.replace('$', '').replace(',', '').strip()
-            try:
-                start_bal = float(clean_val)
-            except ValueError:
-                start_bal = 0.0
-                
-            live_balances[name] = start_bal
-
-        # Step B: Subtract Expenses
-        for exp in raw_expenses:
-            # Get Payment Method
-            method = str(exp.get('Payment Method') or exp.get('payment_method') or '').strip().lower()
-            
-            # Get Cost
-            raw_cost = str(exp.get('Cost') or exp.get('cost') or '0').replace('$', '').replace(',', '').strip()
-            try:
-                cost_val = float(raw_cost)
-            except ValueError:
-                cost_val = 0.0
-                
-            # Subtract cost if method matches an asset name
-            for asset_name in live_balances:
-                if asset_name.lower() in method:
-                    live_balances[asset_name] -= cost_val
-
-        # --- 3. RENDER CASH ON HAND ---
-        st.subheader("💰 Cash on Hand")
-        
-        if live_balances:
-            cols = st.columns(len(live_balances))
-            for idx, (name, val) in enumerate(live_balances.items()):
-                # Determine color (Red if negative)
-                val_fmt = f"${val:,.2f}"
-                cols[idx].metric(label=name, value=val_fmt)
-        else:
-            # Debugging Helper: If still empty, show us what raw data looks like
-            st.warning("No Liquid Assets found. Checking raw data...")
-            if raw_assets:
-                st.write("First 3 Assets found:", raw_assets[:3])
-            else:
-                st.error("Assets data is completely empty. Check Google Sheet connection.")
-
-        st.divider()
-
-        # --- 4. RENDER TOTALS ---
-        total_rev = 0.0 # Placeholder for Revenue
-        total_exp = 0.0
-        
-        # Calculate Total Expenses
-        for exp in raw_expenses:
-            raw_cost = str(exp.get('Cost') or exp.get('cost') or '0').replace('$', '').replace(',', '')
-            try:
-                total_exp += float(raw_cost)
-            except:
-                pass
-
-        net_profit = total_rev - total_exp
-        
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Total Revenue", f"${total_rev:,.0f}")
-        m2.metric("Total Expenses", f"${total_exp:,.0f}")
-        m3.metric("Net Profit", f"${net_profit:,.0f}")
-
-        st.divider()
-        
-        # --- 5. CHARTS ---
-        c1, c2 = st.columns(2)
-        with c1:
-            st.info("Revenue Chart (Coming Soon)")
-        with c2:
-            if raw_expenses:
-                try:
-                    import pandas as pd
-                    import plotly.express as px
-                    
-                    df_chart = pd.DataFrame(raw_expenses)
-                    # Clean cost for chart
-                    df_chart['CleanCost'] = df_chart.apply(
-                        lambda x: float(str(x.get('Cost') or x.get('cost') or 0).replace('$','').replace(',','')), axis=1
-                    )
-                    
-                    # Check for Category key
-                    cat_key = 'Category' if 'Category' in df_chart.columns else 'category'
-                    
-                    if cat_key in df_chart.columns:
-                        fig = px.pie(df_chart, values='CleanCost', names=cat_key, title='Expenses by Category', hole=0.4)
-                        st.plotly_chart(fig, use_container_width=True)
-                    else:
-                        st.warning("Category column missing for chart.")
-                except Exception as e:
-                    st.caption(f"Chart Error: {e}")
-            else:
-                st.info("No expenses to chart.")
-
-elif menu_choice == "🧾 Invoice Generator":
+        # C. Calculate Live Balances
     st.header("Invoice Builder")
     
     # Init Invoice Items List
