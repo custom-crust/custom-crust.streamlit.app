@@ -185,92 +185,122 @@ st.sidebar.markdown("---")
 if menu_choice == "📊 Dashboard":
     st.markdown("## 🚀 Business Command Center")
 
-    # --- 1. CALCULATE LIVE CASH ON HAND ---
-    # Initialize dictionary to hold live balances
+    # --- 1. GET & PROCESS DATA LOCALLY ---
+    # Retrieve raw data from global scope or session state
+    raw_assets = locals().get('assets', []) or globals().get('assets', [])
+    raw_expenses = locals().get('expenses_data', []) or globals().get('expenses_data', [])
+
+    # Filter for Liquid Assets (Case-insensitive check for 'Liquid')
+    liquid_assets = []
+    for a in raw_assets:
+        # Check all possible keys for 'Type'
+        atype = str(a.get('Type') or a.get('type') or a.get('classification') or '').strip().lower()
+        if atype == 'liquid':
+            liquid_assets.append(a)
+
+    # --- 2. CALCULATE LIVE BALANCES ---
     live_balances = {}
     
-    # Safely get assets data
-    safe_assets = locals().get('liquid_assets', [])
-    safe_expenses = locals().get('expenses_data', [])
-
     # Step A: Load Initial Balances
-    for asset in safe_assets:
-        name = str(asset.get('name', 'Unknown')).strip()
-        # Clean currency string -> float
-        raw_val = str(asset.get('value', 0) or asset.get('balance', 0)).replace('$', '').replace(',', '')
+    for asset in liquid_assets:
+        # Get Name (Handle 'Account Name' vs 'name')
+        name = str(asset.get('Account Name') or asset.get('name') or 'Unknown').strip()
+        
+        # Get Balance (Clean '$' and ',')
+        raw_val = str(asset.get('Balance') or asset.get('balance') or asset.get('value') or '0')
+        clean_val = raw_val.replace('$', '').replace(',', '').strip()
         try:
-            start_bal = float(raw_val)
+            start_bal = float(clean_val)
         except ValueError:
             start_bal = 0.0
+            
         live_balances[name] = start_bal
 
-    # Step B: Subtract Expenses (The Math)
-    for exp in safe_expenses:
-        # Get Payment Method & Cost
+    # Step B: Subtract Expenses
+    for exp in raw_expenses:
+        # Get Payment Method
         method = str(exp.get('Payment Method') or exp.get('payment_method') or '').strip().lower()
-        raw_cost = str(exp.get('Cost') or exp.get('cost') or '0').replace('$', '').replace(',', '')
+        
+        # Get Cost
+        raw_cost = str(exp.get('Cost') or exp.get('cost') or '0').replace('$', '').replace(',', '').strip()
         try:
             cost_val = float(raw_cost)
         except ValueError:
             cost_val = 0.0
             
-        # If the Payment Method matches an Asset Name, subtract the cost
+        # Subtract cost if method matches an asset name
         for asset_name in live_balances:
             if asset_name.lower() in method:
                 live_balances[asset_name] -= cost_val
 
-    # --- 2. RENDER CASH ON HAND SECTION ---
+    # --- 3. RENDER CASH ON HAND ---
     st.subheader("💰 Cash on Hand")
+    
     if live_balances:
         cols = st.columns(len(live_balances))
         for idx, (name, val) in enumerate(live_balances.items()):
-            cols[idx].metric(label=name, value=f"${val:,.2f}")
+            # Determine color (Red if negative)
+            val_fmt = f"${val:,.2f}"
+            cols[idx].metric(label=name, value=val_fmt)
     else:
-        st.info("No liquid assets found (Cash/Bank). Check your Assets tab.")
+        # Debugging Helper: If still empty, show us what raw data looks like
+        st.warning("No Liquid Assets found. Checking raw data...")
+        if raw_assets:
+            st.write("First 3 Assets found:", raw_assets[:3])
+        else:
+            st.error("Assets data is completely empty. Check Google Sheet connection.")
 
     st.divider()
 
-    # --- 3. RENDER STANDARD METRICS (REVENUE/EXPENSE) ---
-    # Safe Fallbacks for metric calculation
-    total_rev = 0.0
+    # --- 4. RENDER TOTALS ---
+    total_rev = 0.0 # Placeholder for Revenue
     total_exp = 0.0
     
-    if safe_expenses:
-        total_exp = sum([float(str(e.get('Cost',0)).replace('$','').replace(',','')) for e in safe_expenses if e.get('Cost')])
+    # Calculate Total Expenses
+    for exp in raw_expenses:
+        raw_cost = str(exp.get('Cost') or exp.get('cost') or '0').replace('$', '').replace(',', '')
+        try:
+            total_exp += float(raw_cost)
+        except:
+            pass
 
-    # Calculate Net Profit
     net_profit = total_rev - total_exp
     
-    # Metrics Row
     m1, m2, m3 = st.columns(3)
     m1.metric("Total Revenue", f"${total_rev:,.0f}")
     m2.metric("Total Expenses", f"${total_exp:,.0f}")
-    m3.metric("Net Profit", f"${net_profit:,.0f}", delta=f"{net_profit:,.0f}")
+    m3.metric("Net Profit", f"${net_profit:,.0f}")
 
     st.divider()
-
-    # --- 4. RENDER CHARTS ---
-    c1, c2 = st.columns(2)
     
+    # --- 5. CHARTS ---
+    c1, c2 = st.columns(2)
     with c1:
-        st.caption("Revenue Sources")
-        st.info("No sales data yet.") # Placeholder until sales module is active
-        
+        st.info("Revenue Chart (Coming Soon)")
     with c2:
-        st.caption("Expense Breakdown")
-        if safe_expenses:
-            import pandas as pd
-            import plotly.express as px
-            
-            df_exp_chart = pd.DataFrame(safe_expenses)
-            # Ensure 'Cost' is numeric for the chart
-            df_exp_chart['NumericCost'] = df_exp_chart['Cost'].astype(str).str.replace('$','').str.replace(',','').astype(float)
-            
-            if not df_exp_chart.empty:
-                fig = px.pie(df_exp_chart, values='NumericCost', names='Category', hole=0.4)
-                st.plotly_chart(fig, use_container_width=True)
+        if raw_expenses:
+            try:
+                import pandas as pd
+                import plotly.express as px
+                
+                df_chart = pd.DataFrame(raw_expenses)
+                # Clean cost for chart
+                df_chart['CleanCost'] = df_chart.apply(
+                    lambda x: float(str(x.get('Cost') or x.get('cost') or 0).replace('$','').replace(',','')), axis=1
+                )
+                
+                # Check for Category key
+                cat_key = 'Category' if 'Category' in df_chart.columns else 'category'
+                
+                if cat_key in df_chart.columns:
+                    fig = px.pie(df_chart, values='CleanCost', names=cat_key, title='Expenses by Category', hole=0.4)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("Category column missing for chart.")
+            except Exception as e:
+                st.caption(f"Chart Error: {e}")
         else:
-            st.info("No expenses logged yet.")
+            st.info("No expenses to chart.")
 
 # 🧾 INVOICE GENERATOR (SIMPLIFIED & ROBUST)
 elif menu_choice == "🧾 Invoice Generator":
