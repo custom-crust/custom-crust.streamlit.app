@@ -1,3 +1,12 @@
+def load_data():
+    """Safe data loader outside of main loop"""
+    try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        assets = conn.read(worksheet="Assets", ttl=0).to_dict('records')
+        expenses = conn.read(worksheet="Expenses", ttl=0).to_dict('records')
+        return assets, expenses
+    except Exception:
+        return [], []
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -155,30 +164,14 @@ menu_choice = st.sidebar.radio("Navigation",
 st.sidebar.markdown("---")
 
 def main():
-    # --- 1. ESTABLISH CONNECTION ---
-    try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        
-        # Load Raw Data (Force Fresh Load)
-        assets_df = conn.read(worksheet="Assets", ttl=0)
-        expenses_df = conn.read(worksheet="Expenses", ttl=0)
-        
-        # Convert to list of dicts
-        assets = assets_df.to_dict('records')
-        expenses_data = expenses_df.to_dict('records')
-        
-        # Create 'liquid_assets' for the rest of the app
-        liquid_assets = []
-        if assets:
-            for a in assets:
-                # Robust case-insensitive check
-                atype = str(a.get('Type') or a.get('type') or a.get('classification') or '').strip().lower()
-                if atype == 'liquid':
-                    liquid_assets.append(a)
-
-    except Exception as e:
-        st.error(f"🚨 Data Connection Error: {e}")
-        st.stop()
+    # --- 1. LOAD DATA ---
+    assets, expenses_data = load_data()
+    
+    # Create liquid assets list
+    liquid_assets = [
+        a for a in assets 
+        if str(a.get('Type') or a.get('type') or '').strip().lower() == 'liquid'
+    ]
 
     # --- 6. PAGE LOGIC ---
 
