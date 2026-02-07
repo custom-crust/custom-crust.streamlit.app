@@ -30,9 +30,9 @@ def load_data():
         assets = conn.read(worksheet="Assets", ttl=0).to_dict('records')
         expenses = conn.read(worksheet="Expenses", ttl=0).to_dict('records')
         
-        # CLEAN KEYS: Strip spaces from column names
-        clean_assets = [{k.strip(): v for k, v in row.items()} for row in assets]
-        clean_expenses = [{k.strip(): v for k, v in row.items()} for row in expenses]
+            # Normalize keys immediately so we don't worry about capitalization later
+            clean_assets = normalize_keys(assets)
+            clean_expenses = normalize_keys(expenses)
         
         return clean_assets, clean_expenses
     except Exception:
@@ -68,15 +68,15 @@ def main():
         # Data Processing
         liquid_assets = []
         for a in assets:
-            atype = str(a.get('Type') or a.get('type') or '').strip().lower()
+            atype = str(a.get('type') or '').strip().lower()
             if atype == 'liquid':
                 liquid_assets.append(a)
 
         # Live Balances
         live_balances = {}
         for asset in liquid_assets:
-            name = str(asset.get('Account Name') or asset.get('name') or 'Unknown').strip()
-            val = clean_currency(asset.get('Balance') or asset.get('balance') or 0)
+            name = str(asset.get('account name') or asset.get('name') or 'Unknown').strip()
+            val = clean_currency(asset.get('balance') or 0)
             live_balances[name] = val
         
         # Expense Logic & Chart Data
@@ -84,14 +84,14 @@ def main():
         chart_data = [] 
         
         for exp in expenses_data:
-            cost = clean_currency(exp.get('Cost') or exp.get('cost') or 0)
-            category = str(exp.get('Category') or 'Uncategorized')
+            cost = clean_currency(exp.get('cost') or 0)
+            category = str(exp.get('category') or 'Uncategorized')
             
             if cost > 0:
                 total_exp += cost
                 chart_data.append({'Category': category, 'Cost': cost})
                 
-                method = str(exp.get('Payment Method') or exp.get('payment_method') or '').strip().lower()
+                method = str(exp.get('payment method') or exp.get('payment_method') or '').strip().lower()
                 for asset_name in live_balances:
                     if asset_name.lower() in method:
                         live_balances[asset_name] -= cost
