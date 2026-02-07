@@ -162,16 +162,47 @@ def main():
         st.title("💰 Sales & Revenue")
         st.info("Coming soon...")
 
-    # --- TAB 5: LOG EXPENSES ---
     elif selected == "📝 Log Expenses":
-        st.title("📝 Log Expenses")
-        with st.form("quick_expense"):
-            st.write("Quick Log")
-            item = st.text_input("Item")
-            cost = st.number_input("Cost", min_value=0.0)
-            submitted = st.form_submit_button("Save")
+        st.markdown("## 📝 Log Business Expenses")
+        
+        # Form Container
+        with st.form("expense_entry_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                item_name = st.text_input("Item / Description")
+                cost = st.number_input("Cost ($)", min_value=0.0, format="%.2f")
+                category = st.selectbox("Category", [
+                    "Startup & Assets", "Inventory", "Equipment", 
+                    "Marketing", "Utilities", "Rent", "Labor", "Other"
+                ])
+                
+            with col2:
+                date = st.date_input("Date", datetime.today())
+                
+                # Dynamic Payment Method (Links to Assets)
+                # We rebuild the safe asset list locally to ensure dropdown works
+                pay_options = ["External / Cash"]
+                if 'assets' in locals() and assets:
+                    for a in assets:
+                        aname = str(a.get('Account Name') or a.get('name') or '').strip()
+                        atype = str(a.get('Type') or '').strip().lower()
+                        if aname and atype == 'liquid':
+                            pay_options.append(aname)
+                            
+                payment_method = st.selectbox("Payment Method", pay_options)
+                notes = st.text_area("Notes (Optional)")
+
+            submitted = st.form_submit_button("💾 Save Expense")
+            
             if submitted:
-                st.success(f"Logged {item} for ${cost}")
+                if item_name and cost > 0:
+                    # In a full app, we would write this back to Google Sheets here.
+                    # For now, we show a success message to confirm UI works.
+                    st.success(f"✅ Logged: {item_name} (${cost}) via {payment_method}")
+                    st.balloons()
+                else:
+                    st.error("⚠️ Please enter an Item Name and Cost.")
 
     # --- TAB 6: ASSETS ---
     elif selected == "🏦 Assets & Debt":
