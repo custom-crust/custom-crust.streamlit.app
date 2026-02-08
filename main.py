@@ -19,7 +19,7 @@ st.markdown("""
         background-attachment: fixed;
     }
     section[data-testid="stSidebar"] {display: none;}
-    .block-container {padding-top: 2rem; padding-bottom: 5rem;}
+    .block-container {padding-top: 1rem; padding-bottom: 5rem;}
     
     .stTabs [data-baseweb="tab-list"] {justify-content: center; gap: 20px; border-bottom: 1px solid #333;}
     .stTabs [data-baseweb="tab"] {background-color: transparent; color: #888; font-weight: 600; font-size: 1rem;}
@@ -49,22 +49,37 @@ def clean_currency(value):
 def format_df(df):
     if df.empty: return df
     df.columns = [col.strip().title() for col in df.columns]
+    
+    # 1. Format Money
     money_cols = ['Cost', 'Amount', 'Price', 'Revenue', 'Total', 'Debit', 'Credit', 'Balance', 'Value', 'Unit Cost', 'Recipe Cost', 'Profit', 'Menu Price', 'Line Total']
     for col in df.columns:
         if col in money_cols: df[col] = df[col].apply(clean_currency)
+    
+    # 2. Date Handling
     for col in df.columns:
         if 'date' in col.lower() or 'updated' in col.lower():
             try: df[col] = pd.to_datetime(df[col]).dt.strftime('%m/%d/%Y')
             except: pass
     return df
 
-def style_df(df):
-    if df.empty: return df
-    money_cols = ['Cost', 'Amount', 'Price', 'Revenue', 'Total', 'Debit', 'Credit', 'Balance', 'Value', 'Unit Cost', 'Recipe Cost', 'Profit', 'Menu Price', 'Line Total']
-    pct_cols = ['Margin (%)', 'Margin']
-    format_dict = {c: "${:,.2f}" for c in df.columns if c in money_cols}
-    format_dict.update({c: "{:.1f}%" for c in df.columns if c in pct_cols})
-    return df.style.format(format_dict)
+# --- 4. DISPLAY HELPER ---
+def show_table(df):
+    if df.empty: return
+    
+    col_config = {}
+    for col in df.columns:
+        if "Date" in col or "Updated" in col:
+            col_config[col] = st.column_config.DateColumn(col, format="MM/DD/YYYY")
+        
+        if any(x in col for x in ['Cost', 'Price', 'Amount', 'Revenue', 'Total', 'Balance', 'Profit', 'Debit', 'Credit']):
+             col_config[col] = st.column_config.NumberColumn(col, format="$%.2f")
+
+    st.dataframe(
+        df, 
+        use_container_width=True, 
+        hide_index=True,
+        column_config=col_config
+    )
 
 def load_data():
     data = {}
@@ -80,47 +95,58 @@ def load_data():
             try:
                 df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=0)
                 df.columns = [str(c).strip().lower() for c in df.columns]
-                if 'date' in df.columns: df['date'] = pd.to_datetime(df['date'], errors='coerce')
+                if 'date' in df.columns:
+                    df['date'] = pd.to_datetime(df['date'], errors='coerce')
                 data[key] = df.to_dict('records')
             except: data[key] = []
         return data, None
     except Exception as e:
         return {k:[] for k in tabs}, str(e)
 
-# --- 4. MAIN APP ---
+# --- 5. MAIN APP ---
 def main():
-    if 'quote_cart' not in st.session_state: st.session_state.quote_cart = []
+    if 'quote_cart' not in st.session_state:
+        st.session_state.quote_cart = []
+
     data, error = load_data()
     assets, expenses, sales = data['assets'], data['expenses'], data['sales']
     menu, vault, debt = data['menu'], data['vault'], data['debt']
     ingredients, recipes, vendors = data['ingredients'], data['recipes'], data['vendors']
     bank_log = data['bank_log']
 
-    # --- LOGO (CENTERED & SMALLER) ---
-    c1, c2, c3 = st.columns([1, 1, 1]) # Three equal columns to center perfectly
+    # --- LOGO DISPLAY (PINCHED CENTER) ---
+    # [3, 1, 3] creates wide side margins and a narrow middle column.
+    # This forces the logo to stay small and perfectly centered.
+    c1, c2, c3 = st.columns([3, 1, 3]) 
     with c2: 
         if os.path.exists("logo.png"):
-            # FIXED: Changed from 'use_container_width=True' to fixed width
-            st.image("logo.png", width=220) 
+            st.image("logo.png", use_container_width=True)
         else:
-            st.markdown("<h1 style='text-align: center; font-size: 80px;'>🍕 CCK</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 style='text-align: center;'>🍕 CCK</h1>", unsafe_allow_html=True)
     
     if error: st.error(f"🚨 Connection Error: {error}")
 
     tabs = st.tabs(["📊 Dashboard", "🏦 Banking", "💰 Sales", "📝 Expenses", "📉 Debt", "📅 Event Quote", "🍕 Menu", "📂 Tools"])
 
-    # --- MATH ---
+    # --- SHARED CALCS ---
     northern_bank_bal = 0.0
+    
+    # 1. Assets
     for a in assets:
-        if "northern" in str(a.get('account name','')).lower():
+        name = str(a.get('account name') or a.get('name') or '').lower()
+        if "northern" in name:
             northern_bank_bal = clean_currency(a.get('balance', 0))
 
+    # 2. Expenses
+    tot_exp = 0.0
     for e in expenses:
-        pay_method = str(e.get('paid via') or '').lower()
         val = clean_currency(e.get('cost') or e.get('amount') or 0)
+        tot_exp += val
+        pay_method = str(e.get('paid via') or '').lower()
         if "northern" in pay_method or "bank" in pay_method:
             northern_bank_bal -= val
 
+    # 3. Bank Log
     if bank_log:
         for b in bank_log:
             b_type = str(b.get('type') or b.get('transaction type') or b.get('from account') or '').lower()
@@ -128,6 +154,9 @@ def main():
             if "deposit" in b_type: northern_bank_bal += val
             elif "withdraw" in b_type: northern_bank_bal -= val
 
+    # 4. Sales & Debt
+    tot_sale = sum(clean_currency(s.get('revenue') or s.get('amount') or 0) for s in sales)
+    
     borrowed, repaid = 0.0, 0.0
     if debt:
         for d in debt:
@@ -136,11 +165,8 @@ def main():
             if "borrow" in t_type: borrowed += amt
             elif "repay" in t_type: repaid += amt
     current_debt = borrowed - repaid
-    
-    tot_exp = sum(clean_currency(e.get('cost') or e.get('amount') or 0) for e in expenses)
-    tot_sale = sum(clean_currency(s.get('revenue') or s.get('amount') or 0) for s in sales)
 
-    # --- UI ---
+    # --- TAB 1: DASHBOARD ---
     with tabs[0]:
         st.write("##")
         c1, c2, c3, c4 = st.columns(4)
@@ -148,6 +174,7 @@ def main():
         c2.metric("🔴 Current Debt", f"${current_debt:,.2f}")
         c3.metric("💵 Total Sales", f"${tot_sale:,.2f}")
         c4.metric("💸 Total Expenses", f"${tot_exp:,.2f}")
+        
         st.write("---")
         c1, c2 = st.columns(2)
         with c1:
@@ -175,9 +202,11 @@ def main():
                         st.plotly_chart(figS, use_container_width=True)
             else: st.info("No sales data.")
 
+    # --- TAB 2: BANKING ---
     with tabs[1]:
         st.write("##")
         st.markdown(f"### 🏦 Northern Bank Balance: **${northern_bank_bal:,.2f}**")
+        
         c1, c2 = st.columns(2)
         with c1:
             with st.form("bank_op"):
@@ -186,12 +215,17 @@ def main():
                 b_amt = st.number_input("Amount ($)", 0.0)
                 b_desc = st.text_input("Description")
                 b_date = st.date_input("Date", datetime.today(), format="MM/DD/YYYY")
-                if st.form_submit_button("Submit"): st.success(f"Recorded: {b_type} of ${b_amt}")
+                
+                if st.form_submit_button("Submit"):
+                    st.success(f"Recorded: {b_type} of ${b_amt}")
+                    
         with c2:
             st.markdown("#### Activity Log")
-            if bank_log: st.dataframe(style_df(format_df(pd.DataFrame(bank_log))), use_container_width=True, hide_index=True)
+            if bank_log:
+                show_table(format_df(pd.DataFrame(bank_log)))
             else: st.caption("No activity.")
 
+    # --- TAB 3: SALES ---
     with tabs[2]:
         st.write("##")
         c1, c2 = st.columns([1, 2])
@@ -204,54 +238,71 @@ def main():
                 date = st.date_input("Date", datetime.today(), format="MM/DD/YYYY")
                 if st.form_submit_button("Log Sale"): st.success("Logged!")
         with c2:
-            ytd, mtd, wk, last_wk = 0.0, 0.0, 0.0, 0.0
+            ytd_val, mtd_val, week_val, last_week_val = 0.0, 0.0, 0.0, 0.0
             if sales:
                 df_s = pd.DataFrame(sales)
                 rev = next((c for c in ['revenue','amount'] if c in df_s.columns), None)
                 if rev:
                     df_s['cl'] = df_s[rev].apply(clean_currency)
                     now = datetime.now()
-                    st_wk = (now - timedelta(days=now.weekday())).replace(hour=0,minute=0,second=0,microsecond=0)
-                    ytd = df_s[df_s['date'] >= datetime(now.year,1,1)]['cl'].sum()
-                    mtd = df_s[df_s['date'] >= datetime(now.year,now.month,1)]['cl'].sum()
-                    wk = df_s[df_s['date'] >= st_wk]['cl'].sum()
-                    last_wk = df_s[(df_s['date'] >= st_wk-timedelta(7)) & (df_s['date'] < st_wk)]['cl'].sum()
+                    start_wk = (now - timedelta(days=now.weekday())).replace(hour=0,minute=0,second=0,microsecond=0)
+                    ytd_val = df_s[df_s['date'] >= datetime(now.year,1,1)]['cl'].sum()
+                    mtd_val = df_s[df_s['date'] >= datetime(now.year,now.month,1)]['cl'].sum()
+                    week_val = df_s[df_s['date'] >= start_wk]['cl'].sum()
+                    last_week_val = df_s[(df_s['date'] >= start_wk-timedelta(7)) & (df_s['date'] < start_wk)]['cl'].sum()
+            
             m1, m2, m3, m4 = st.columns(4)
-            m1.metric("📅 YTD", f"${ytd:,.0f}"); m2.metric("🗓️ MTD", f"${mtd:,.0f}"); m3.metric("🟢 This Wk", f"${wk:,.0f}"); m4.metric("🟡 Last Wk", f"${last_wk:,.0f}")
+            m1.metric("📅 YTD", f"${ytd_val:,.0f}")
+            m2.metric("🗓️ MTD", f"${mtd_val:,.0f}")
+            m3.metric("🟢 This Wk", f"${week_val:,.0f}")
+            m4.metric("🟡 Last Wk", f"${last_week_val:,.0f}")
             st.write("---")
-            if sales: st.dataframe(style_df(format_df(pd.DataFrame(sales))), use_container_width=True, hide_index=True)
+            if sales: show_table(format_df(pd.DataFrame(sales)))
 
+    # --- TAB 4: EXPENSES ---
     with tabs[3]:
         st.write("##")
         with st.form("exp"):
             c1, c2, c3, c4 = st.columns(4)
-            item = c1.text_input("Item"); cost = c2.number_input("Cost ($)", 0.0)
+            item = c1.text_input("Item")
+            cost = c2.number_input("Cost ($)", 0.0)
             cat = c3.selectbox("Category", ["Ingredients & Supplies", "Fuel & Propane", "Smallwares & Utensils", "Equipment", "Equipment Maintenance", "Licensing & Legal", "Rent", "Labor", "Startup Asset / Initial Investment", "Other"])
             pay = c4.selectbox("Paid Via", ["Northern Bank Debit Card", "Cash / Undeposited", "Owner Personal Funds / Equity"])
             if st.form_submit_button("Save"): st.success("Saved!")
-        if expenses: st.dataframe(style_df(format_df(pd.DataFrame(expenses))), use_container_width=True, hide_index=True)
+        if expenses: show_table(format_df(pd.DataFrame(expenses)))
 
+    # --- TAB 5: DEBT ---
     with tabs[4]:
         st.write("##")
         c1, c2, c3 = st.columns(3)
-        c1.metric("🔴 Borrowed", f"${borrowed:,.2f}"); c2.metric("🟢 Paid Off", f"${repaid:,.2f}"); c3.metric("🟡 Remaining", f"${current_debt:,.2f}")
+        c1.metric("🔴 Borrowed", f"${borrowed:,.2f}")
+        c2.metric("🟢 Paid Off", f"${repaid:,.2f}")
+        c3.metric("🟡 Remaining", f"${current_debt:,.2f}")
         st.write("---")
         with st.form("debt"):
             c1, c2, c3, c4 = st.columns(4)
-            name = c1.text_input("Name"); dtype = c2.selectbox("Type", ["Repay", "Borrow"]); amt = c3.number_input("Amount ($)", 0.0); dt = c4.date_input("Date", datetime.today(), format="MM/DD/YYYY")
+            name = c1.text_input("Name")
+            dtype = c2.selectbox("Type", ["Repay", "Borrow"])
+            amt = c3.number_input("Amount ($)", 0.0)
+            dt = c4.date_input("Date", datetime.today(), format="MM/DD/YYYY")
             if st.form_submit_button("Log"): st.success("Logged!")
-        if debt: st.dataframe(style_df(format_df(pd.DataFrame(debt))), use_container_width=True, hide_index=True)
+        if debt: show_table(format_df(pd.DataFrame(debt)))
 
+    # --- TAB 6: QUOTE BUILDER ---
     with tabs[5]:
         st.write("##")
         st.markdown("### 📝 Event Quote Builder")
         c1, c2 = st.columns(2)
         with c1:
             fee_amt = st.number_input("Flat Event Fee ($)", 0.0)
-            if st.button("Add Event Fee"): st.session_state.quote_cart.append({"Item": "Event Fee", "Price": fee_amt, "Qty": 1, "Line Total": fee_amt}); st.rerun()
+            if st.button("Add Event Fee"):
+                st.session_state.quote_cart.append({"Item": "Event Fee", "Price": fee_amt, "Qty": 1, "Line Total": fee_amt})
+                st.rerun()
         with c2:
             trav_amt = st.number_input("Travel Fee ($)", 0.0)
-            if st.button("Add Travel Fee"): st.session_state.quote_cart.append({"Item": "Travel Fee", "Price": trav_amt, "Qty": 1, "Line Total": trav_amt}); st.rerun()
+            if st.button("Add Travel Fee"):
+                st.session_state.quote_cart.append({"Item": "Travel Fee", "Price": trav_amt, "Qty": 1, "Line Total": trav_amt})
+                st.rerun()
         st.write("---")
         c_add1, c_add2, c_add3 = st.columns([3, 1, 1])
         df_menu = pd.DataFrame(menu) if menu else pd.DataFrame()
@@ -262,24 +313,30 @@ def main():
             qty = c_add2.number_input("Qty", 1, 500, 10)
             row = df_menu[df_menu[m_name] == sel].iloc[0]
             pr = clean_currency(row[m_price]) if m_price else 0.0
-            if c_add3.button("Add"): st.session_state.quote_cart.append({"Item": sel, "Price": pr, "Qty": qty, "Line Total": pr*qty}); st.rerun()
+            if c_add3.button("Add"):
+                st.session_state.quote_cart.append({"Item": sel, "Price": pr, "Qty": qty, "Line Total": pr*qty})
+                st.rerun()
+        
         if st.session_state.quote_cart:
             cart = pd.DataFrame(st.session_state.quote_cart)
-            st.dataframe(style_df(format_df(cart)), use_container_width=True, hide_index=True)
+            show_table(format_df(cart))
             st.metric("⭐ TOTAL QUOTE", f"${cart['Line Total'].sum():,.2f}")
             if st.button("Clear"): st.session_state.quote_cart = []; st.rerun()
 
+    # --- TAB 7: MENU ---
     with tabs[6]:
         st.write("##")
-        if menu: st.dataframe(style_df(format_df(pd.DataFrame(menu))), use_container_width=True, hide_index=True)
+        if menu: show_table(format_df(pd.DataFrame(menu)))
         with st.expander("Add Item"):
             with st.form("menu"):
                 name = st.text_input("Name"); price = st.number_input("Price", 0.0)
                 if st.form_submit_button("Add"): st.success("Added!")
 
+    # --- TAB 8: TOOLS ---
     with tabs[7]:
         st.write("##")
         sub1, sub2, sub3, sub4 = st.tabs(["💰 Profit", "🤝 Vendors", "🏦 Assets", "🗄️ Vault"])
+        
         with sub1:
             if ingredients and recipes and menu:
                 df_ing = pd.DataFrame(ingredients)
@@ -316,9 +373,9 @@ def main():
                             final['Profit'] = final['clean_price'] - final['Recipe Cost']
                             final['Margin (%)'] = (final['Profit'] / final['clean_price']) * 100
                             final.rename(columns={'clean_price': 'Menu Price'}, inplace=True)
-                            st.dataframe(style_df(format_df(final[['Item Name', 'Recipe Cost', 'Menu Price', 'Profit', 'Margin (%)']])), use_container_width=True, hide_index=True)
+                            show_table(format_df(final[['Item Name', 'Recipe Cost', 'Menu Price', 'Profit', 'Margin (%)']]))
             else: st.info("Waiting for data.")
-        
+
         with sub2:
             with st.expander("➕ Add"):
                 with st.form("v"):
@@ -329,10 +386,11 @@ def main():
             if vendors:
                 df_v = pd.DataFrame(vendors)
                 mask = df_v.apply(lambda x: x.astype(str).str.lower().str.contains(q).any(), axis=1)
-                st.dataframe(format_df(df_v[mask]), use_container_width=True, hide_index=True)
-        
+                show_table(format_df(df_v[mask]))
+
         with sub3:
-            if assets: st.dataframe(style_df(format_df(pd.DataFrame(assets))), use_container_width=True, hide_index=True)
+            if assets: show_table(format_df(pd.DataFrame(assets)))
+        
         with sub4:
             with st.expander("➕ Add Doc"):
                 with st.form("d"):
