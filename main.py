@@ -96,11 +96,12 @@ def main():
     ingredients, recipes, vendors = data['ingredients'], data['recipes'], data['vendors']
     bank_log = data['bank_log']
 
-    # --- LOGO (CENTERED & ROBUST) ---
-    c1, c2, c3 = st.columns([1, 2, 1]) # Middle column is wider
+    # --- LOGO (CENTERED & SMALLER) ---
+    c1, c2, c3 = st.columns([1, 1, 1]) # Three equal columns to center perfectly
     with c2: 
         if os.path.exists("logo.png"):
-            st.image("logo.png", use_container_width=True)
+            # FIXED: Changed from 'use_container_width=True' to fixed width
+            st.image("logo.png", width=220) 
         else:
             st.markdown("<h1 style='text-align: center; font-size: 80px;'>🍕 CCK</h1>", unsafe_allow_html=True)
     
@@ -109,7 +110,6 @@ def main():
     tabs = st.tabs(["📊 Dashboard", "🏦 Banking", "💰 Sales", "📝 Expenses", "📉 Debt", "📅 Event Quote", "🍕 Menu", "📂 Tools"])
 
     # --- MATH ---
-    liquid = 0.0
     northern_bank_bal = 0.0
     for a in assets:
         if "northern" in str(a.get('account name','')).lower():
