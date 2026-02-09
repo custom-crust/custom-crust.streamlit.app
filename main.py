@@ -63,7 +63,7 @@ def format_df(df):
             
     return df
 
-# --- 4. DISPLAY HELPER (MISSING PIECE RESTORED) ---
+# --- 4. DISPLAY HELPER ---
 def show_table(df):
     if df.empty: return
     
@@ -96,7 +96,11 @@ def load_data():
         conn = st.connection("gsheets", type=GSheetsConnection)
         for key, sheet_name in tabs.items():
             try:
-                df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=0)
+                # --- OPTIMIZATION HERE ---
+                # ttl=5 means "Wait 5 seconds before checking Google again"
+                # This prevents the app from crashing due to too many requests.
+                df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=5)
+                
                 df.columns = [str(c).strip().lower() for c in df.columns]
                 if 'date' in df.columns:
                     df['date'] = pd.to_datetime(df['date'], errors='coerce')
@@ -117,7 +121,7 @@ def main():
     ingredients, recipes, vendors = data['ingredients'], data['recipes'], data['vendors']
     bank_log = data['bank_log']
 
-    # --- LOGO DISPLAY (PINCHED CENTER & PADDED) ---
+    # --- LOGO DISPLAY ---
     c1, c2, c3 = st.columns([3, 1, 3]) 
     with c2: 
         if os.path.exists("logo.png"):
