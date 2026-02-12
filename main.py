@@ -40,9 +40,11 @@ st.markdown("""
 
     [data-testid="stElementToolbar"] {display: none;}
     
-    /* HIDE STREAMLIT ANCHOR LINKS (The Chain Icon) */
-    .st-emotion-cache-1h9usn1, .anchor-link {display: none !important;}
-    a.anchor-link {display: none !important;}
+    /* --- HIDE STREAMLIT HEADER ANCHORS (The Chain Icon) --- */
+    [data-testid="stHeaderAction"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
 
     .vault-link {
         font-size: 18px; color: #58a6ff; text-decoration: none;
