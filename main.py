@@ -69,8 +69,6 @@ def format_df(df):
     # Capitalize Headers
     display_df.columns = [col.strip().title() for col in display_df.columns]
 
-    # REMOVED: Aggressive row filtering (Temporarily disabled to ensure data visibility)
-    
     money_cols = ['Cost', 'Amount', 'Price', 'Revenue', 'Total', 'Debit', 'Credit', 'Balance', 'Value', 'Unit Cost', 'Recipe Cost', 'Profit', 'Menu Price', 'Line Total']
     for col in display_df.columns:
         if col in money_cols: display_df[col] = display_df[col].apply(clean_currency)
@@ -111,14 +109,12 @@ def load_data():
     
     for key, sheet_name in tabs.items():
         try:
-            # Reverted to default TTL (cache) to prevent connection timeouts
             df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=5)
             df.columns = [str(c).strip().lower() for c in df.columns]
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'], errors='coerce')
             data[key] = df
         except Exception as e:
-            # NOW SHOWS THE ERROR so we know which sheet is failing
             st.error(f"⚠️ Error loading tab '{sheet_name}': {e}")
             data[key] = pd.DataFrame()
             
@@ -294,7 +290,12 @@ def main():
                     if update_sheet("Bank_Log", updated_df): st.success("Logged!"); st.rerun()
         with c2:
             st.markdown("#### Activity Log")
-            if not bank_log.empty: show_table(format_df(bank_log))
+            if not bank_log.empty:
+                df_display = format_df(bank_log)
+                # --- FIX: HIDE UNWANTED COLUMNS ---
+                unwanted = ["From Account", "To Account"]
+                df_display = df_display.drop(columns=[c for c in unwanted if c in df_display.columns])
+                show_table(df_display)
 
     # --- TAB 4: SALES ---
     with tabs[3]:
@@ -458,7 +459,7 @@ def main():
                     # ROUNDING
                     final = final.round(2)
                     
-                    # FORMAT_DF to fix headers
+                    # --- WRAPPED IN FORMAT_DF TO FIX HEADER/DUPLICATE ROW ---
                     display_profit = final[[m_name, 'clean_price', 'Recipe Cost', 'Profit', 'Margin %']].rename(columns={'clean_price':'Menu Price'})
                     show_table(format_df(display_profit))
                     
