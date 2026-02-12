@@ -63,7 +63,7 @@ def format_df(df):
     display_df.columns = [col.strip().title() for col in display_df.columns]
 
     # --- CLEANING: REMOVE REPEATED HEADER ROWS ---
-    # This checks if the first column's value matches the header name (case-insensitive)
+    # This filters out any row where the content of the first cell matches the column header
     if not display_df.empty:
         first_col = display_df.columns[0]
         display_df = display_df[display_df[first_col].astype(str).str.strip().str.lower() != first_col.strip().lower()]
@@ -103,7 +103,7 @@ def load_data():
         "assets": "Assets", "expenses": "Ledger", "sales": "Sales",
         "menu": "Menu", "vault": "Vault_Index", "debt": "Debt_Log",
         "ingredients": "Ingredients", "recipes": "Recipes", "vendors": "Vendors",
-        "bank_log": "Transfers"
+        "bank_log": "Bank_Log"  # FIXED: CHANGED FROM 'Transfers' TO 'Bank_Log'
     }
     try:
         conn = get_connection()
@@ -287,7 +287,8 @@ def main():
                 if st.form_submit_button("Submit"):
                     new_row = pd.DataFrame([{"type": b_type, "amount": b_amt, "description": b_desc, "date": b_date.strftime("%Y-%m-%d")}])
                     updated_df = pd.concat([bank_log, new_row], ignore_index=True)
-                    if update_sheet("Transfers", updated_df): st.success("Logged!"); st.rerun()
+                    # FIXED: USING "Bank_Log" INSTEAD OF "Transfers"
+                    if update_sheet("Bank_Log", updated_df): st.success("Logged!"); st.rerun()
         with c2:
             st.markdown("#### Activity Log")
             if not bank_log.empty: show_table(format_df(bank_log))
