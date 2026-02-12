@@ -69,6 +69,12 @@ def format_df(df):
     # Capitalize Headers
     display_df.columns = [col.strip().title() for col in display_df.columns]
 
+    # --- CLEANING: REMOVE REPEATED HEADER ROWS ---
+    # This checks if the first column's value matches the header name (case-insensitive)
+    if not display_df.empty:
+        first_col = display_df.columns[0]
+        display_df = display_df[display_df[first_col].astype(str).str.strip().str.lower() != first_col.strip().lower()]
+
     money_cols = ['Cost', 'Amount', 'Price', 'Revenue', 'Total', 'Debit', 'Credit', 'Balance', 'Value', 'Unit Cost', 'Recipe Cost', 'Profit', 'Menu Price', 'Line Total']
     for col in display_df.columns:
         if col in money_cols: display_df[col] = display_df[col].apply(clean_currency)
@@ -82,7 +88,7 @@ def format_df(df):
 def show_table(df):
     if df.empty: return
     
-    # Create a copy for display so we don't mess up the logic
+    # Create a copy for display
     df_display = df.copy()
     col_config = {}
 
@@ -91,15 +97,11 @@ def show_table(df):
         if "Date" in col or "Updated" in col:
             col_config[col] = st.column_config.DateColumn(col, format="MM/DD/YYYY")
     
-    # 2. STRING FORMATTING FOR MONEY (The Brute Force Fix)
-    # This guarantees the $ and , appear because we turn the number into text like "$6,672.00"
+    # 2. STRING FORMATTING FOR MONEY
     money_cols = ['Cost', 'Price', 'Amount', 'Revenue', 'Total', 'Balance', 'Profit', 'Debit', 'Credit']
     for col in df_display.columns:
         if any(x in col for x in money_cols):
-            # Apply Python f-string formatting
             df_display[col] = df_display[col].apply(lambda x: f"${x:,.2f}" if isinstance(x, (int, float)) else x)
-        
-        # Format Percentages
         elif "Margin" in col or "%" in col:
              df_display[col] = df_display[col].apply(lambda x: f"{x:.1f}%" if isinstance(x, (int, float)) else x)
 
@@ -305,12 +307,12 @@ def main():
             st.markdown("#### Activity Log")
             if not bank_log.empty:
                 df_display = format_df(bank_log)
-                # --- FIX: HIDE UNWANTED COLUMNS ---
+                # --- HIDE UNWANTED COLUMNS ---
                 unwanted = ["From Account", "To Account", "Notes"]
                 df_display = df_display.drop(columns=[c for c in unwanted if c in df_display.columns])
                 show_table(df_display)
 
-    # --- TAB 4: SALES ---
+    # --- TAB 4: SALES (RESTORED METRICS) ---
     with tabs[3]:
         st.write("##")
         c1, c2 = st.columns([1, 2])
@@ -327,6 +329,26 @@ def main():
                     if update_sheet("Sales", updated_df): st.success("Logged!"); st.rerun()
 
         with c2:
+            # --- SALES DASHBOARD LOGIC ---
+            ytd_val, mtd_val, week_val, last_week_val = 0.0, 0.0, 0.0, 0.0
+            if not sales.empty:
+                df_s = sales.copy()
+                rev = next((c for c in ['revenue','amount'] if c in df_s.columns), None)
+                if rev:
+                    df_s['cl'] = df_s[rev].apply(clean_currency)
+                    now = datetime.now()
+                    start_wk = (now - timedelta(days=now.weekday())).replace(hour=0,minute=0,second=0,microsecond=0)
+                    
+                    ytd_val = df_s[df_s['date'] >= datetime(now.year,1,1)]['cl'].sum()
+                    mtd_val = df_s[df_s['date'] >= datetime(now.year,now.month,1)]['cl'].sum()
+                    week_val = df_s[df_s['date'] >= start_wk]['cl'].sum()
+                    last_week_val = df_s[(df_s['date'] >= start_wk-timedelta(7)) & (df_s['date'] < start_wk)]['cl'].sum()
+            
+            m1, m2, m3, m4 = st.columns(4)
+            m1.metric("📅 YTD Sales", f"${ytd_val:,.0f}")
+            m2.metric("🗓️ MTD Sales", f"${mtd_val:,.0f}")
+            m3.metric("🟢 This Week", f"${week_val:,.0f}")
+            m4.metric("🟡 Last Week", f"${last_week_val:,.0f}")
             st.write("---")
             if not sales.empty: show_table(format_df(sales))
 
