@@ -39,6 +39,10 @@ st.markdown("""
     div[data-testid="stMetricValue"] {color: #ffffff !important;}
 
     [data-testid="stElementToolbar"] {display: none;}
+    
+    /* HIDE STREAMLIT ANCHOR LINKS (The Chain Icon) */
+    .st-emotion-cache-1h9usn1, .anchor-link {display: none !important;}
+    a.anchor-link {display: none !important;}
 
     .vault-link {
         font-size: 18px; color: #58a6ff; text-decoration: none;
@@ -63,7 +67,6 @@ def format_df(df):
     display_df.columns = [col.strip().title() for col in display_df.columns]
 
     # --- CLEANING: REMOVE REPEATED HEADER ROWS ---
-    # This filters out any row where the content of the first cell matches the column header
     if not display_df.empty:
         first_col = display_df.columns[0]
         display_df = display_df[display_df[first_col].astype(str).str.strip().str.lower() != first_col.strip().lower()]
@@ -103,7 +106,7 @@ def load_data():
         "assets": "Assets", "expenses": "Ledger", "sales": "Sales",
         "menu": "Menu", "vault": "Vault_Index", "debt": "Debt_Log",
         "ingredients": "Ingredients", "recipes": "Recipes", "vendors": "Vendors",
-        "bank_log": "Bank_Log"  # FIXED: CHANGED FROM 'Transfers' TO 'Bank_Log'
+        "bank_log": "Bank_Log"
     }
     try:
         conn = get_connection()
@@ -243,12 +246,13 @@ def main():
     # --- TAB 2: P&L ---
     with tabs[1]:
         st.write("##")
+        # FIXED: Changed h1 to div to prevent anchor link generation
         st.markdown(f"""
         <div style="text-align: center; padding: 20px; background-color: #161b22; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 20px;">
             <h3 style="margin:0; color: #8b949e;">Net Position (Liquid Assets - Debt)</h3>
-            <h1 style="margin:0; font-size: 3rem; color: {'#da3633' if net_position < 0 else '#238636'};">
+            <div style="margin:0; font-size: 3rem; font-weight: bold; color: {'#da3633' if net_position < 0 else '#238636'};">
                 ${net_position:,.2f}
-            </h1>
+            </div>
             <p style="color: #8b949e;">Goal: Get this number to $0.00 (Debt Free)</p>
         </div>
         """, unsafe_allow_html=True)
@@ -287,7 +291,6 @@ def main():
                 if st.form_submit_button("Submit"):
                     new_row = pd.DataFrame([{"type": b_type, "amount": b_amt, "description": b_desc, "date": b_date.strftime("%Y-%m-%d")}])
                     updated_df = pd.concat([bank_log, new_row], ignore_index=True)
-                    # FIXED: USING "Bank_Log" INSTEAD OF "Transfers"
                     if update_sheet("Bank_Log", updated_df): st.success("Logged!"); st.rerun()
         with c2:
             st.markdown("#### Activity Log")
