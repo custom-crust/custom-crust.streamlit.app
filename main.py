@@ -40,7 +40,7 @@ st.markdown("""
 
     [data-testid="stElementToolbar"] {display: none;}
     
-    /* --- HIDE STREAMLIT HEADER ANCHORS (The Chain Icon) --- */
+    /* --- HIDE STREAMLIT HEADER ANCHORS --- */
     [data-testid="stHeaderAction"] {
         display: none !important;
         visibility: hidden !important;
@@ -65,14 +65,12 @@ def clean_currency(value):
 def format_df(df):
     if df.empty: return df
     display_df = df.copy()
+    
     # Capitalize Headers
     display_df.columns = [col.strip().title() for col in display_df.columns]
 
-    # --- CLEANING: REMOVE REPEATED HEADER ROWS ---
-    if not display_df.empty:
-        first_col = display_df.columns[0]
-        display_df = display_df[display_df[first_col].astype(str).str.strip().str.lower() != first_col.strip().lower()]
-
+    # REMOVED: Aggressive row filtering (Temporarily disabled to ensure data visibility)
+    
     money_cols = ['Cost', 'Amount', 'Price', 'Revenue', 'Total', 'Debit', 'Credit', 'Balance', 'Value', 'Unit Cost', 'Recipe Cost', 'Profit', 'Menu Price', 'Line Total']
     for col in display_df.columns:
         if col in money_cols: display_df[col] = display_df[col].apply(clean_currency)
@@ -89,10 +87,8 @@ def show_table(df):
     for col in df.columns:
         if "Date" in col or "Updated" in col:
             col_config[col] = st.column_config.DateColumn(col, format="MM/DD/YYYY")
-        # --- FORMAT CURRENCY ---
         elif any(x in col for x in ['Cost', 'Price', 'Amount', 'Revenue', 'Total', 'Balance', 'Profit', 'Debit', 'Credit']):
              col_config[col] = st.column_config.NumberColumn(col, format="$%.2f")
-        # --- FORMAT PERCENTAGE ---
         elif "Margin" in col or "%" in col:
             col_config[col] = st.column_config.NumberColumn(col, format="%.1f%%")
 
@@ -110,19 +106,23 @@ def load_data():
         "ingredients": "Ingredients", "recipes": "Recipes", "vendors": "Vendors",
         "bank_log": "Bank_Log"
     }
-    try:
-        conn = get_connection()
-        for key, sheet_name in tabs.items():
-            try:
-                df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=0)
-                df.columns = [str(c).strip().lower() for c in df.columns]
-                if 'date' in df.columns:
-                    df['date'] = pd.to_datetime(df['date'], errors='coerce')
-                data[key] = df
-            except: data[key] = pd.DataFrame()
-        return data, None
-    except Exception as e:
-        return {k:pd.DataFrame() for k in tabs}, str(e)
+    
+    conn = get_connection()
+    
+    for key, sheet_name in tabs.items():
+        try:
+            # Reverted to default TTL (cache) to prevent connection timeouts
+            df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=5)
+            df.columns = [str(c).strip().lower() for c in df.columns]
+            if 'date' in df.columns:
+                df['date'] = pd.to_datetime(df['date'], errors='coerce')
+            data[key] = df
+        except Exception as e:
+            # NOW SHOWS THE ERROR so we know which sheet is failing
+            st.error(f"⚠️ Error loading tab '{sheet_name}': {e}")
+            data[key] = pd.DataFrame()
+            
+    return data, None
 
 def update_sheet(sheet_name, df):
     try:
@@ -150,7 +150,6 @@ def main():
 
     if error: st.error(f"🚨 Connection Error: {error}")
 
-    # NEW TABS LAYOUT
     tabs = st.tabs(["📊 Dashboard", "📉 P&L", "🏦 Banking", "💰 Sales", "📝 Expenses", "📉 Debt", "📅 Quote", "🍕 Menu", "📂 Tools"])
 
     # --- SHARED CALCS ---
@@ -186,7 +185,7 @@ def main():
     tot_exp = sum(clean_currency(row.get('cost') or row.get('amount') or 0) for i, row in expenses.iterrows()) if not expenses.empty else 0
     tot_sale = sum(clean_currency(row.get('revenue') or row.get('amount') or 0) for i, row in sales.iterrows()) if not sales.empty else 0
 
-    # Net Position (Liquid Assets - Debt)
+    # Net Position
     net_position = northern_bank_bal - current_debt
 
     # Weekly P&L Logic
@@ -248,7 +247,6 @@ def main():
     # --- TAB 2: P&L ---
     with tabs[1]:
         st.write("##")
-        # FIXED: Changed h1 to div to prevent anchor link generation
         st.markdown(f"""
         <div style="text-align: center; padding: 20px; background-color: #161b22; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 20px;">
             <h3 style="margin:0; color: #8b949e;">Net Position (Liquid Assets - Debt)</h3>
@@ -460,7 +458,7 @@ def main():
                     # ROUNDING
                     final = final.round(2)
                     
-                    # --- WRAPPED IN FORMAT_DF TO FIX HEADER/DUPLICATE ROW ---
+                    # FORMAT_DF to fix headers
                     display_profit = final[[m_name, 'clean_price', 'Recipe Cost', 'Profit', 'Margin %']].rename(columns={'clean_price':'Menu Price'})
                     show_table(format_df(display_profit))
                     
