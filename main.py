@@ -37,6 +37,7 @@ st.markdown("""
     }
     h1, h3, h4, p, label {color: #e6edf3; font-family: 'Segoe UI', sans-serif;}
     div[data-testid="stMetricValue"] {color: #ffffff !important;}
+    [data-testid="stElementToolbar"] {display: none;}
     </style>
 """, unsafe_allow_html=True)
 
