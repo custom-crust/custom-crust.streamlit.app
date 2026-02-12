@@ -5,6 +5,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from streamlit_gsheets import GSheetsConnection
 import os
+import re
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="CCK Dashboard", layout="wide", page_icon="🍕")
@@ -14,18 +15,18 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1yqbd35J140KWT7ui8Ggqn68_OfG
 st.markdown("""
     <style>
     .stApp {
-        background-color: #0E1117; 
+        background-color: #0E1117;
         background-image: url("https://www.transparenttextures.com/patterns/cubes.png");
         background-blend-mode: overlay;
         background-attachment: fixed;
     }
     section[data-testid="stSidebar"] {display: none;}
     .block-container {padding-top: 3rem; padding-bottom: 5rem;}
-    
+
     .stTabs [data-baseweb="tab-list"] {justify-content: center; gap: 20px; border-bottom: 1px solid #333;}
     .stTabs [data-baseweb="tab"] {background-color: transparent; color: #888; font-weight: 600; font-size: 1rem;}
     .stTabs [aria-selected="true"] {color: #4CAF50 !important; border-bottom: 2px solid #4CAF50 !important;}
-    
+
     div.stMetric, div.stDataFrame, div[data-testid="stForm"] {
         background-color: #161b22; border: 1px solid #30363d;
         padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
@@ -36,11 +37,11 @@ st.markdown("""
     }
     h1, h3, h4, p, label {color: #e6edf3; font-family: 'Segoe UI', sans-serif;}
     div[data-testid="stMetricValue"] {color: #ffffff !important;}
-    
+
     [data-testid="stElementToolbar"] {display: none;}
-    
+
     .vault-link {
-        font-size: 18px; color: #58a6ff; text-decoration: none; 
+        font-size: 18px; color: #58a6ff; text-decoration: none;
         padding: 10px; display: block; border-bottom: 1px solid #30363d;
     }
     .vault-link:hover {color: #4CAF50; background-color: #1c2128;}
@@ -59,23 +60,21 @@ def format_df(df):
     if df.empty: return df
     display_df = df.copy()
     display_df.columns = [col.strip().title() for col in display_df.columns]
-    
+
     # --- CLEANING: REMOVE REPEATED HEADER ROWS ---
     # This filters out any row where the content of the first cell matches the column header
-    # e.g., Removes the row ("Item Name", "Description") that appears inside the data
     if not display_df.empty:
         first_col = display_df.columns[0]
-        # Filter: Keep rows where (Column 1 Value) != (Column 1 Name)
         display_df = display_df[display_df[first_col].astype(str).str.strip().str.lower() != first_col.strip().lower()]
 
     money_cols = ['Cost', 'Amount', 'Price', 'Revenue', 'Total', 'Debit', 'Credit', 'Balance', 'Value', 'Unit Cost', 'Recipe Cost', 'Profit', 'Menu Price', 'Line Total']
     for col in display_df.columns:
         if col in money_cols: display_df[col] = display_df[col].apply(clean_currency)
-    
+
     for col in display_df.columns:
         if 'Date' in col or 'Updated' in col:
             display_df[col] = pd.to_datetime(display_df[col], errors='coerce')
-            
+
     return display_df
 
 def show_table(df):
@@ -84,8 +83,12 @@ def show_table(df):
     for col in df.columns:
         if "Date" in col or "Updated" in col:
             col_config[col] = st.column_config.DateColumn(col, format="MM/DD/YYYY")
-        if any(x in col for x in ['Cost', 'Price', 'Amount', 'Revenue', 'Total', 'Balance', 'Profit', 'Debit', 'Credit']):
-             col_config[col] = st.column_config.NumberColumn(col, format="$%.2f")
+        # --- FIX 1: ADD COMMA SEPARATOR TO CURRENCY ---
+        elif any(x in col for x in ['Cost', 'Price', 'Amount', 'Revenue', 'Total', 'Balance', 'Profit', 'Debit', 'Credit']):
+             col_config[col] = st.column_config.NumberColumn(col, format="$%,.2f")
+        # --- FIX 2: ADD PERCENTAGE FORMATTING ---
+        elif "Margin" in col or "%" in col:
+            col_config[col] = st.column_config.NumberColumn(col, format="%.1f%%")
 
     st.dataframe(df, use_container_width=True, hide_index=True, column_config=col_config)
 
@@ -96,10 +99,10 @@ def get_connection():
 def load_data():
     data = {}
     tabs = {
-        "assets": "Assets", "expenses": "Ledger", "sales": "Sales", 
+        "assets": "Assets", "expenses": "Ledger", "sales": "Sales",
         "menu": "Menu", "vault": "Vault_Index", "debt": "Debt_Log",
         "ingredients": "Ingredients", "recipes": "Recipes", "vendors": "Vendors",
-        "bank_log": "Transfers" 
+        "bank_log": "Transfers"
     }
     try:
         conn = get_connection()
@@ -134,11 +137,11 @@ def main():
     ingredients, recipes, vendors = data['ingredients'], data['recipes'], data['vendors']
     bank_log = data['bank_log']
 
-    c1, c2, c3 = st.columns([3, 1, 3]) 
-    with c2: 
-        if os.path.exists("logo.png"): st.image("logo.png", width=200) 
+    c1, c2, c3 = st.columns([3, 1, 3])
+    with c2:
+        if os.path.exists("logo.png"): st.image("logo.png", width=200)
         else: st.markdown("<h1 style='text-align: center; font-size: 80px;'>🍕 CCK</h1>", unsafe_allow_html=True)
-    
+
     if error: st.error(f"🚨 Connection Error: {error}")
 
     # NEW TABS LAYOUT
@@ -173,17 +176,17 @@ def main():
             if "borrow" in t_type: borrowed += amt
             elif "repay" in t_type: repaid += amt
     current_debt = borrowed - repaid
-    
+
     tot_exp = sum(clean_currency(row.get('cost') or row.get('amount') or 0) for i, row in expenses.iterrows()) if not expenses.empty else 0
     tot_sale = sum(clean_currency(row.get('revenue') or row.get('amount') or 0) for i, row in sales.iterrows()) if not sales.empty else 0
-    
+
     # Net Position (Liquid Assets - Debt)
     net_position = northern_bank_bal - current_debt
 
     # Weekly P&L Logic
     now = datetime.now()
     start_wk = (now - timedelta(days=now.weekday())).replace(hour=0,minute=0,second=0,microsecond=0)
-    
+
     wk_sales, wk_exp = 0.0, 0.0
     if not sales.empty:
         df_s = sales.copy()
@@ -198,7 +201,7 @@ def main():
             cost_col = next((c for c in ['cost','amount'] if c in df_e.columns), None)
             if cost_col:
                 wk_exp = df_e[df_e['date'] >= start_wk][cost_col].apply(clean_currency).sum()
-    
+
     wk_profit = wk_sales - wk_exp
 
     # --- TAB 1: DASHBOARD ---
@@ -210,7 +213,7 @@ def main():
         c3.metric("💵 Total Sales", f"${tot_sale:,.2f}")
         c4.metric("💸 Total Expenses", f"${tot_exp:,.2f}")
         st.write("---")
-        
+
         c1, c2 = st.columns(2)
         with c1:
             st.markdown("#### 💸 Expenses")
@@ -236,10 +239,9 @@ def main():
                         figS.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0", height=300, margin=dict(t=0, b=0, l=0, r=0))
                         st.plotly_chart(figS, use_container_width=True)
 
-    # --- TAB 2: P&L (NEW!) ---
+    # --- TAB 2: P&L ---
     with tabs[1]:
         st.write("##")
-        # Top Metric: The "Net Position"
         st.markdown(f"""
         <div style="text-align: center; padding: 20px; background-color: #161b22; border-radius: 10px; border: 1px solid #30363d; margin-bottom: 20px;">
             <h3 style="margin:0; color: #8b949e;">Net Position (Liquid Assets - Debt)</h3>
@@ -250,20 +252,18 @@ def main():
         </div>
         """, unsafe_allow_html=True)
 
-        # Weekly Breakdown
         st.markdown("### 📅 This Week's Performance (Mon-Sun)")
         c1, c2, c3 = st.columns(3)
         c1.metric("Incoming (Sales)", f"${wk_sales:,.2f}")
         c2.metric("Outgoing (Expenses)", f"${wk_exp:,.2f}")
         c3.metric("Weekly Net Profit", f"${wk_profit:,.2f}", delta_color="normal")
 
-        # Visual Chart
         if wk_sales > 0 or wk_exp > 0:
             chart_data = pd.DataFrame({
                 "Type": ["Sales (In)", "Expenses (Out)"],
                 "Amount": [wk_sales, wk_exp]
             })
-            fig = px.bar(chart_data, x="Type", y="Amount", color="Type", 
+            fig = px.bar(chart_data, x="Type", y="Amount", color="Type",
                          color_discrete_map={"Sales (In)": "#238636", "Expenses (Out)": "#da3633"},
                          title="This Week: Money In vs. Money Out")
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0")
@@ -373,7 +373,7 @@ def main():
                 pr = clean_currency(row[m_price]) if m_price else 0.0
                 st.session_state.quote_cart.append({"Item": sel, "Price": pr, "Qty": qty, "Line Total": pr*qty})
                 st.rerun()
-        
+
         if st.session_state.quote_cart:
             cart = pd.DataFrame(st.session_state.quote_cart)
             show_table(format_df(cart))
@@ -387,7 +387,7 @@ def main():
         with st.expander("Add Item"):
             with st.form("menu"):
                 name = st.text_input("Name"); price = st.number_input("Price", 0.0)
-                if st.form_submit_button("Add"): 
+                if st.form_submit_button("Add"):
                     new_row = pd.DataFrame([{"item name": name, "price": price}])
                     updated_df = pd.concat([menu, new_row], ignore_index=True)
                     if update_sheet("Menu", updated_df): st.success("Added!"); st.rerun()
@@ -396,12 +396,13 @@ def main():
     with tabs[8]:
         st.write("##")
         sub1, sub2, sub3, sub4 = st.tabs(["💰 Profit", "🤝 Vendors", "🏦 Assets", "🗄️ Vault"])
-        
+
         with sub1:
             if ingredients.empty or recipes.empty or menu.empty:
                 st.info("⚠️ Need Ingredients, Recipes, and Menu data to calculate profit.")
             else:
                 try:
+                    # 1. Calculate Ingredient Unit Costs
                     df_ing = ingredients.copy()
                     c_cost = next((c for c in df_ing.columns if 'cost' in c), 'cost')
                     c_yield = next((c for c in df_ing.columns if 'yield' in c), 'yield')
@@ -410,33 +411,49 @@ def main():
                     df_ing['unit_cost'] = df_ing[c_cost].apply(clean_currency) / df_ing[c_yield].apply(clean_currency).replace(0, 1)
                     df_ing['match_item'] = df_ing[c_item].str.lower().str.strip()
 
+                    # 2. Calculate Recipe Costs
                     df_rec = recipes.copy()
                     r_name = next((c for c in df_rec.columns if 'recipe' in c), 'recipe')
                     r_ing = next((c for c in df_rec.columns if 'ingredient' in c), 'ingredient')
                     r_qty = next((c for c in df_rec.columns if 'quantity' in c or 'qty' in c), 'quantity')
-                    
+
                     df_rec['match_ing'] = df_rec[r_ing].str.lower().str.strip()
                     df_rec['qty_clean'] = df_rec[r_qty].apply(clean_currency)
 
+                    # --- FIX 3: BETTER MATCHING & WARNINGS ---
                     merged = pd.merge(df_rec, df_ing, left_on='match_ing', right_on='match_item', how='left')
-                    merged['line_cost'] = merged['qty_clean'] * merged['unit_cost']
                     
+                    # Check for failed ingredient matches
+                    unmatched_ingredients = merged[merged['unit_cost'].isna()]['match_ing'].unique()
+                    if len(unmatched_ingredients) > 0:
+                        st.warning(f"⚠️ Could not find costs for these ingredients in recipes: {', '.join(unmatched_ingredients)}. Check spelling in 'Ingredients' vs 'Recipes' sheets.")
+
+                    merged['line_cost'] = merged['qty_clean'] * merged['unit_cost']
+
                     recipe_costs = merged.groupby(r_name)['line_cost'].sum().reset_index()
                     recipe_costs.rename(columns={'line_cost': 'Recipe Cost', r_name: 'Recipe Name'}, inplace=True)
                     recipe_costs['match_recipe'] = recipe_costs['Recipe Name'].str.lower().str.strip()
 
+                    # 3. Compare with Menu Price
                     df_menu = menu.copy()
                     m_name = next((c for c in df_menu.columns if 'item' in c or 'name' in c), 'item name')
                     m_price = next((c for c in df_menu.columns if 'price' in c), 'price')
-                    
-                    df_menu['match_menu'] = df_menu[m_name].str.lower().str.strip()
+
+                    # --- FIX 3: SMARTER MENU MATCHING (Ignores "(12")") ---
+                    df_menu['match_menu'] = df_menu[m_name].astype(str).str.replace(r"\s*\(.*?\)", "", regex=True).str.strip().str.lower()
                     df_menu['clean_price'] = df_menu[m_price].apply(clean_currency)
 
                     final = pd.merge(df_menu, recipe_costs, left_on='match_menu', right_on='match_recipe', how='left')
+                    
+                    # Check for failed menu-to-recipe matches
+                    unmatched_menu_items = final[final['Recipe Cost'].isna()][m_name].unique()
+                    if len(unmatched_menu_items) > 0:
+                         st.warning(f"⚠️ Could not find recipes for these menu items: {', '.join(unmatched_menu_items)}. Check spelling in 'Menu' vs 'Recipes' sheets.")
+
                     final['Recipe Cost'] = final['Recipe Cost'].fillna(0)
                     final['Profit'] = final['clean_price'] - final['Recipe Cost']
                     final['Margin %'] = ((final['Profit'] / final['clean_price']) * 100).fillna(0)
-                    
+
                     show_table(final[[m_name, 'clean_price', 'Recipe Cost', 'Profit', 'Margin %']].rename(columns={'clean_price':'Menu Price'}))
                 except Exception as e:
                     st.error(f"Calculation Error: {e}")
@@ -445,7 +462,7 @@ def main():
             with st.expander("➕ Add Vendor"):
                 with st.form("v"):
                     n = st.text_input("Name"); c = st.text_input("Cat"); p = st.text_input("Prod"); ph = st.text_input("Phone"); em = st.text_input("Email")
-                    if st.form_submit_button("Save"): 
+                    if st.form_submit_button("Save"):
                         new_row = pd.DataFrame([{"vendor name": n, "category": c, "products": p, "phone": ph, "email": em}])
                         updated_df = pd.concat([vendors, new_row], ignore_index=True)
                         if update_sheet("Vendors", updated_df): st.success("Saved!"); st.rerun()
@@ -457,11 +474,11 @@ def main():
 
         with sub3:
             if not assets.empty: show_table(format_df(assets))
-        
+
         with sub4:
             with st.expander("➕ Add Document"):
                 with st.form("d"):
-                    n = st.text_input("Document Name"); l = st.text_input("Link (URL)"); 
+                    n = st.text_input("Document Name"); l = st.text_input("Link (URL)");
                     if st.form_submit_button("Save"):
                          new_row = pd.DataFrame([{"document name": n, "link": l}])
                          updated_df = pd.concat([vault, new_row], ignore_index=True)
