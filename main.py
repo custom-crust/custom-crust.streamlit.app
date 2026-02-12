@@ -81,17 +81,29 @@ def format_df(df):
 
 def show_table(df):
     if df.empty: return
+    
+    # Create a copy for display so we don't mess up the logic
+    df_display = df.copy()
     col_config = {}
-    for col in df.columns:
+
+    # 1. Format Dates
+    for col in df_display.columns:
         if "Date" in col or "Updated" in col:
             col_config[col] = st.column_config.DateColumn(col, format="MM/DD/YYYY")
-        elif any(x in col for x in ['Cost', 'Price', 'Amount', 'Revenue', 'Total', 'Balance', 'Profit', 'Debit', 'Credit']):
-             # FIXED: Added comma to format string "$%,.2f"
-             col_config[col] = st.column_config.NumberColumn(col, format="$%,.2f")
+    
+    # 2. STRING FORMATTING FOR MONEY (The Brute Force Fix)
+    # This guarantees the $ and , appear because we turn the number into text like "$6,672.00"
+    money_cols = ['Cost', 'Price', 'Amount', 'Revenue', 'Total', 'Balance', 'Profit', 'Debit', 'Credit']
+    for col in df_display.columns:
+        if any(x in col for x in money_cols):
+            # Apply Python f-string formatting
+            df_display[col] = df_display[col].apply(lambda x: f"${x:,.2f}" if isinstance(x, (int, float)) else x)
+        
+        # Format Percentages
         elif "Margin" in col or "%" in col:
-            col_config[col] = st.column_config.NumberColumn(col, format="%.1f%%")
+             df_display[col] = df_display[col].apply(lambda x: f"{x:.1f}%" if isinstance(x, (int, float)) else x)
 
-    st.dataframe(df, use_container_width=True, hide_index=True, column_config=col_config)
+    st.dataframe(df_display, use_container_width=True, hide_index=True, column_config=col_config)
 
 # --- 4. GOOGLE SHEETS FUNCTIONS ---
 def get_connection():
