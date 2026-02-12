@@ -59,9 +59,11 @@ def clean_currency(value):
 def format_df(df):
     if df.empty: return df
     display_df = df.copy()
+    # Capitalize Headers
     display_df.columns = [col.strip().title() for col in display_df.columns]
 
     # --- CLEANING: REMOVE REPEATED HEADER ROWS ---
+    # This checks if the first column's value matches the header name (case-insensitive)
     if not display_df.empty:
         first_col = display_df.columns[0]
         display_df = display_df[display_df[first_col].astype(str).str.strip().str.lower() != first_col.strip().lower()]
@@ -421,7 +423,7 @@ def main():
 
                     merged = pd.merge(df_rec, df_ing, left_on='match_ing', right_on='match_item', how='left')
                     
-                    # --- FIX: FILL MISSING COSTS WITH 0 ---
+                    # FILL MISSING COSTS WITH 0
                     merged['unit_cost'] = merged['unit_cost'].fillna(0.0)
                     
                     # WARNINGS (Collapsible)
@@ -449,10 +451,13 @@ def main():
                     final['Profit'] = final['clean_price'] - final['Recipe Cost']
                     final['Margin %'] = ((final['Profit'] / final['clean_price']) * 100).fillna(0)
 
-                    # --- ROUNDING FOR CLEAN DISPLAY ---
+                    # ROUNDING
                     final = final.round(2)
-
-                    show_table(final[[m_name, 'clean_price', 'Recipe Cost', 'Profit', 'Margin %']].rename(columns={'clean_price':'Menu Price'}))
+                    
+                    # --- WRAPPED IN FORMAT_DF TO FIX HEADER/DUPLICATE ROW ---
+                    display_profit = final[[m_name, 'clean_price', 'Recipe Cost', 'Profit', 'Margin %']].rename(columns={'clean_price':'Menu Price'})
+                    show_table(format_df(display_profit))
+                    
                 except Exception as e:
                     st.error(f"Calculation Error: {e}")
 
