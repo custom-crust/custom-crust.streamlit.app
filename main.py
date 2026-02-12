@@ -19,9 +19,7 @@ st.markdown("""
         background-attachment: fixed;
     }
     section[data-testid="stSidebar"] {display: none;}
-    
-    /* PREVENTS LOGO CUTOFF AT TOP */
-    .block-container {padding-top: 5rem; padding-bottom: 5rem;}
+    .block-container {padding-top: 3rem; padding-bottom: 5rem;}
     
     .stTabs [data-baseweb="tab-list"] {justify-content: center; gap: 20px; border-bottom: 1px solid #333;}
     .stTabs [data-baseweb="tab"] {background-color: transparent; color: #888; font-weight: 600; font-size: 1rem;}
@@ -38,8 +36,15 @@ st.markdown("""
     h1, h3, h4, p, label {color: #e6edf3; font-family: 'Segoe UI', sans-serif;}
     div[data-testid="stMetricValue"] {color: #ffffff !important;}
     
-    /* HIDE THE UGLY DATAFRAME TOOLBAR */
+    /* HIDE TOOLBAR */
     [data-testid="stElementToolbar"] {display: none;}
+    
+    /* VAULT LINKS STYLE */
+    .vault-link {
+        font-size: 18px; color: #58a6ff; text-decoration: none; 
+        padding: 10px; display: block; border-bottom: 1px solid #30363d;
+    }
+    .vault-link:hover {color: #4CAF50; background-color: #1c2128;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -53,7 +58,6 @@ def clean_currency(value):
 
 def format_df(df):
     if df.empty: return df
-    # Make headers pretty for display only
     display_df = df.copy()
     display_df.columns = [col.strip().title() for col in display_df.columns]
     
@@ -61,7 +65,6 @@ def format_df(df):
     for col in display_df.columns:
         if col in money_cols: display_df[col] = display_df[col].apply(clean_currency)
     
-    # Ensure dates are actual datetime objects for the display formatter
     for col in display_df.columns:
         if 'Date' in col or 'Updated' in col:
             display_df[col] = pd.to_datetime(display_df[col], errors='coerce')
@@ -70,7 +73,6 @@ def format_df(df):
 
 def show_table(df):
     if df.empty: return
-    
     col_config = {}
     for col in df.columns:
         if "Date" in col or "Updated" in col:
@@ -78,12 +80,7 @@ def show_table(df):
         if any(x in col for x in ['Cost', 'Price', 'Amount', 'Revenue', 'Total', 'Balance', 'Profit', 'Debit', 'Credit']):
              col_config[col] = st.column_config.NumberColumn(col, format="$%.2f")
 
-    st.dataframe(
-        df, 
-        use_container_width=True, 
-        hide_index=True,
-        column_config=col_config
-    )
+    st.dataframe(df, use_container_width=True, hide_index=True, column_config=col_config)
 
 # --- 4. GOOGLE SHEETS FUNCTIONS ---
 def get_connection():
@@ -99,24 +96,20 @@ def load_data():
     }
     try:
         conn = get_connection()
+        # USE TTL=0 TO FORCE FRESH DATA
         for key, sheet_name in tabs.items():
             try:
-                # Read data
-                df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=0) # ttl=0 ensures fresh data on reload
-                # Normalize columns to lowercase for code consistency
+                df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=0)
                 df.columns = [str(c).strip().lower() for c in df.columns]
-                # Parse dates
                 if 'date' in df.columns:
                     df['date'] = pd.to_datetime(df['date'], errors='coerce')
                 data[key] = df
-            except: 
-                data[key] = pd.DataFrame()
+            except: data[key] = pd.DataFrame()
         return data, None
     except Exception as e:
         return {k:pd.DataFrame() for k in tabs}, str(e)
 
 def update_sheet(sheet_name, df):
-    """Writes the DataFrame back to Google Sheets"""
     try:
         conn = get_connection()
         conn.update(spreadsheet=SHEET_URL, worksheet=sheet_name, data=df)
@@ -127,8 +120,7 @@ def update_sheet(sheet_name, df):
 
 # --- 5. MAIN APP ---
 def main():
-    if 'quote_cart' not in st.session_state:
-        st.session_state.quote_cart = []
+    if 'quote_cart' not in st.session_state: st.session_state.quote_cart = []
 
     data, error = load_data()
     assets, expenses, sales = data['assets'], data['expenses'], data['sales']
@@ -136,28 +128,22 @@ def main():
     ingredients, recipes, vendors = data['ingredients'], data['recipes'], data['vendors']
     bank_log = data['bank_log']
 
-    # --- LOGO DISPLAY ---
     c1, c2, c3 = st.columns([3, 1, 3]) 
     with c2: 
-        if os.path.exists("logo.png"):
-            st.image("logo.png", width=200) 
-        else:
-            st.markdown("<h1 style='text-align: center; font-size: 80px;'>🍕 CCK</h1>", unsafe_allow_html=True)
+        if os.path.exists("logo.png"): st.image("logo.png", width=200) 
+        else: st.markdown("<h1 style='text-align: center; font-size: 80px;'>🍕 CCK</h1>", unsafe_allow_html=True)
     
     if error: st.error(f"🚨 Connection Error: {error}")
 
     tabs = st.tabs(["📊 Dashboard", "🏦 Banking", "💰 Sales", "📝 Expenses", "📉 Debt", "📅 Event Quote", "🍕 Menu", "📂 Tools"])
 
-    # --- CALCULATIONS ---
+    # --- SHARED CALCS ---
     northern_bank_bal = 0.0
-    
-    # 1. Starting Asset Balance
     if not assets.empty:
         for index, row in assets.iterrows():
             if "northern" in str(row.get('account name','')).lower():
                 northern_bank_bal += clean_currency(row.get('balance', 0))
 
-    # 2. Subtract Expenses Paid by Bank
     if not expenses.empty:
         for index, row in expenses.iterrows():
             pay_method = str(row.get('paid via', '')).lower()
@@ -165,7 +151,6 @@ def main():
             if "northern" in pay_method or "bank" in pay_method:
                 northern_bank_bal -= val
 
-    # 3. Add/Sub Banking Transfers
     if not bank_log.empty:
         for index, row in bank_log.iterrows():
             b_type = str(row.get('type') or row.get('transaction type') or row.get('from account') or '').lower()
@@ -173,7 +158,6 @@ def main():
             if "deposit" in b_type: northern_bank_bal += val
             elif "withdraw" in b_type: northern_bank_bal -= val
 
-    # Debt Calc
     borrowed, repaid = 0.0, 0.0
     if not debt.empty:
         for index, row in debt.iterrows():
@@ -186,7 +170,7 @@ def main():
     tot_exp = sum(clean_currency(row.get('cost') or row.get('amount') or 0) for i, row in expenses.iterrows()) if not expenses.empty else 0
     tot_sale = sum(clean_currency(row.get('revenue') or row.get('amount') or 0) for i, row in sales.iterrows()) if not sales.empty else 0
 
-    # --- UI ---
+    # --- TAB 1: DASHBOARD ---
     with tabs[0]:
         st.write("##")
         c1, c2, c3, c4 = st.columns(4)
@@ -194,8 +178,8 @@ def main():
         c2.metric("🔴 Current Debt", f"${current_debt:,.2f}")
         c3.metric("💵 Total Sales", f"${tot_sale:,.2f}")
         c4.metric("💸 Total Expenses", f"${tot_exp:,.2f}")
-        
         st.write("---")
+        
         c1, c2 = st.columns(2)
         with c1:
             st.markdown("#### 💸 Expenses")
@@ -220,13 +204,11 @@ def main():
                         figS = px.pie(df_s, values='clean_rev', names=cat_col, hole=0.6, color_discrete_sequence=px.colors.qualitative.Set3)
                         figS.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0", height=300, margin=dict(t=0, b=0, l=0, r=0))
                         st.plotly_chart(figS, use_container_width=True)
-            else: st.info("No sales data.")
 
     # --- TAB 2: BANKING ---
     with tabs[1]:
         st.write("##")
         st.markdown(f"### 🏦 Northern Bank Balance: **${northern_bank_bal:,.2f}**")
-        
         c1, c2 = st.columns(2)
         with c1:
             with st.form("bank_op"):
@@ -235,23 +217,13 @@ def main():
                 b_amt = st.number_input("Amount ($)", 0.0)
                 b_desc = st.text_input("Description")
                 b_date = st.date_input("Date", datetime.today(), format="MM/DD/YYYY")
-                
                 if st.form_submit_button("Submit"):
-                    new_row = pd.DataFrame([{
-                        "type": b_type,
-                        "amount": b_amt,
-                        "description": b_desc,
-                        "date": b_date.strftime("%Y-%m-%d")
-                    }])
+                    new_row = pd.DataFrame([{"type": b_type, "amount": b_amt, "description": b_desc, "date": b_date.strftime("%Y-%m-%d")}])
                     updated_df = pd.concat([bank_log, new_row], ignore_index=True)
-                    if update_sheet("Transfers", updated_df):
-                        st.success("Transaction Logged!")
-                        st.rerun()
-                    
+                    if update_sheet("Transfers", updated_df): st.success("Transaction Logged!"); st.rerun()
         with c2:
             st.markdown("#### Activity Log")
             if not bank_log.empty: show_table(format_df(bank_log))
-            else: st.caption("No activity.")
 
     # --- TAB 3: SALES ---
     with tabs[2]:
@@ -264,18 +236,10 @@ def main():
                 desc = st.text_input("Event Name")
                 amt = st.number_input("Revenue ($)", 0.0)
                 date = st.date_input("Date", datetime.today(), format="MM/DD/YYYY")
-                
                 if st.form_submit_button("Log Sale"):
-                    new_row = pd.DataFrame([{
-                        "category": cat,
-                        "event": desc,
-                        "revenue": amt,
-                        "date": date.strftime("%Y-%m-%d")
-                    }])
+                    new_row = pd.DataFrame([{"category": cat, "event": desc, "revenue": amt, "date": date.strftime("%Y-%m-%d")}])
                     updated_df = pd.concat([sales, new_row], ignore_index=True)
-                    if update_sheet("Sales", updated_df):
-                        st.success("Sale Logged!")
-                        st.rerun()
+                    if update_sheet("Sales", updated_df): st.success("Sale Logged!"); st.rerun()
 
         with c2:
             ytd_val, mtd_val, week_val, last_week_val = 0.0, 0.0, 0.0, 0.0
@@ -308,20 +272,10 @@ def main():
             cost = c2.number_input("Cost ($)", 0.0)
             cat = c3.selectbox("Category", ["Ingredients & Supplies", "Fuel & Propane", "Smallwares & Utensils", "Equipment", "Equipment Maintenance", "Licensing & Legal", "Rent", "Labor", "Startup Asset / Initial Investment", "Other"])
             pay = c4.selectbox("Paid Via", ["Northern Bank Debit Card", "Cash / Undeposited", "Owner Personal Funds / Equity"])
-            
             if st.form_submit_button("Save"):
-                new_row = pd.DataFrame([{
-                    "item": item,
-                    "cost": cost,
-                    "category": cat,
-                    "paid via": pay,
-                    "date": datetime.today().strftime("%Y-%m-%d")
-                }])
+                new_row = pd.DataFrame([{"item": item, "cost": cost, "category": cat, "paid via": pay, "date": datetime.today().strftime("%Y-%m-%d")}])
                 updated_df = pd.concat([expenses, new_row], ignore_index=True)
-                if update_sheet("Ledger", updated_df):
-                    st.success("Expense Saved!")
-                    st.rerun()
-                    
+                if update_sheet("Ledger", updated_df): st.success("Expense Saved!"); st.rerun()
         if not expenses.empty: show_table(format_df(expenses))
 
     # --- TAB 5: DEBT ---
@@ -338,22 +292,10 @@ def main():
             dtype = c2.selectbox("Type", ["Repay", "Borrow"])
             amt = c3.number_input("Amount ($)", 0.0)
             dt = c4.date_input("Date", datetime.today(), format="MM/DD/YYYY")
-            
             if st.form_submit_button("Log"):
-                # 1. Create Data
-                new_row = pd.DataFrame([{
-                    "loan name": name,
-                    "transaction type": dtype,
-                    "amount": amt,
-                    "date": dt.strftime("%Y-%m-%d")
-                }])
-                # 2. Append to existing
+                new_row = pd.DataFrame([{"loan name": name, "transaction type": dtype, "amount": amt, "date": dt.strftime("%Y-%m-%d")}])
                 updated_df = pd.concat([debt, new_row], ignore_index=True)
-                # 3. Write to Google Sheets
-                if update_sheet("Debt_Log", updated_df):
-                    st.success("Logged!")
-                    st.rerun()
-
+                if update_sheet("Debt_Log", updated_df): st.success("Logged!"); st.rerun()
         if not debt.empty: show_table(format_df(debt))
 
     # --- TAB 6: QUOTE BUILDER ---
@@ -400,31 +342,71 @@ def main():
                 if st.form_submit_button("Add"): 
                     new_row = pd.DataFrame([{"item name": name, "price": price}])
                     updated_df = pd.concat([menu, new_row], ignore_index=True)
-                    if update_sheet("Menu", updated_df):
-                        st.success("Added!")
-                        st.rerun()
+                    if update_sheet("Menu", updated_df): st.success("Added!"); st.rerun()
 
     # --- TAB 8: TOOLS ---
     with tabs[7]:
         st.write("##")
         sub1, sub2, sub3, sub4 = st.tabs(["💰 Profit", "🤝 Vendors", "🏦 Assets", "🗄️ Vault"])
         
+        # --- FIXED PROFIT CALCULATOR ---
         with sub1:
-            # Profit logic (simplified for display)
-            if not ingredients.empty and not recipes.empty and not menu.empty:
-               st.info("Profit calculator active.") # Placeholder as custom logic is complex
-            else: st.info("Waiting for data.")
+            if ingredients.empty or recipes.empty or menu.empty:
+                st.info("⚠️ Need Ingredients, Recipes, and Menu data to calculate profit.")
+            else:
+                try:
+                    # 1. Calculate Ingredient Unit Costs
+                    df_ing = ingredients.copy()
+                    # Fallback column matching
+                    c_cost = next((c for c in df_ing.columns if 'cost' in c), 'cost')
+                    c_yield = next((c for c in df_ing.columns if 'yield' in c), 'yield')
+                    c_item = next((c for c in df_ing.columns if 'item' in c), 'item')
+
+                    df_ing['unit_cost'] = df_ing[c_cost].apply(clean_currency) / df_ing[c_yield].apply(clean_currency).replace(0, 1)
+                    df_ing['match_item'] = df_ing[c_item].str.lower().str.strip()
+
+                    # 2. Calculate Recipe Costs
+                    df_rec = recipes.copy()
+                    r_name = next((c for c in df_rec.columns if 'recipe' in c), 'recipe')
+                    r_ing = next((c for c in df_rec.columns if 'ingredient' in c), 'ingredient')
+                    r_qty = next((c for c in df_rec.columns if 'quantity' in c or 'qty' in c), 'quantity')
+                    
+                    df_rec['match_ing'] = df_rec[r_ing].str.lower().str.strip()
+                    df_rec['qty_clean'] = df_rec[r_qty].apply(clean_currency)
+
+                    merged = pd.merge(df_rec, df_ing, left_on='match_ing', right_on='match_item', how='left')
+                    merged['line_cost'] = merged['qty_clean'] * merged['unit_cost']
+                    
+                    recipe_costs = merged.groupby(r_name)['line_cost'].sum().reset_index()
+                    recipe_costs.rename(columns={'line_cost': 'Recipe Cost', r_name: 'Recipe Name'}, inplace=True)
+                    recipe_costs['match_recipe'] = recipe_costs['Recipe Name'].str.lower().str.strip()
+
+                    # 3. Compare with Menu Price
+                    df_menu = menu.copy()
+                    m_name = next((c for c in df_menu.columns if 'item' in c or 'name' in c), 'item name')
+                    m_price = next((c for c in df_menu.columns if 'price' in c), 'price')
+                    
+                    df_menu['match_menu'] = df_menu[m_name].str.lower().str.strip()
+                    df_menu['clean_price'] = df_menu[m_price].apply(clean_currency)
+
+                    final = pd.merge(df_menu, recipe_costs, left_on='match_menu', right_on='match_recipe', how='left')
+                    final['Recipe Cost'] = final['Recipe Cost'].fillna(0)
+                    final['Profit'] = final['clean_price'] - final['Recipe Cost']
+                    final['Margin %'] = ((final['Profit'] / final['clean_price']) * 100).fillna(0)
+                    
+                    # Display
+                    show_table(final[[m_name, 'clean_price', 'Recipe Cost', 'Profit', 'Margin %']].rename(columns={'clean_price':'Menu Price'}))
+                except Exception as e:
+                    st.error(f"Calculation Error: {e}")
 
         with sub2:
-            with st.expander("➕ Add"):
+            with st.expander("➕ Add Vendor"):
                 with st.form("v"):
                     n = st.text_input("Name"); c = st.text_input("Cat"); p = st.text_input("Prod"); ph = st.text_input("Phone"); em = st.text_input("Email")
                     if st.form_submit_button("Save"): 
                         new_row = pd.DataFrame([{"vendor name": n, "category": c, "products": p, "phone": ph, "email": em}])
                         updated_df = pd.concat([vendors, new_row], ignore_index=True)
-                        if update_sheet("Vendors", updated_df):
-                            st.success("Saved!")
-                            st.rerun()
+                        if update_sheet("Vendors", updated_df): st.success("Saved!"); st.rerun()
             st.write("---")
             q = st.text_input("🔍 Search Vendors", "").lower()
             if not vendors.empty:
@@ -434,10 +416,24 @@ def main():
         with sub3:
             if not assets.empty: show_table(format_df(assets))
         
+        # --- FIXED VAULT (LINKS) ---
         with sub4:
-            st.caption("Document Vault")
+            with st.expander("➕ Add Document"):
+                with st.form("d"):
+                    n = st.text_input("Document Name"); l = st.text_input("Link (URL)"); 
+                    if st.form_submit_button("Save"):
+                         new_row = pd.DataFrame([{"document name": n, "link": l}])
+                         updated_df = pd.concat([vault, new_row], ignore_index=True)
+                         if update_sheet("Vault_Index", updated_df): st.success("Saved!"); st.rerun()
+            st.write("---")
             if not vault.empty:
-                 show_table(format_df(vault))
+                for index, row in vault.iterrows():
+                    name = row.get('document name') or row.get('name') or "Unnamed Doc"
+                    link = row.get('link') or row.get('url') or "#"
+                    if link and str(link).startswith('http'):
+                        st.markdown(f'<a href="{link}" target="_blank" class="vault-link">📄 {name}</a>', unsafe_allow_html=True)
+                    else:
+                        st.markdown(f'<div class="vault-link">📄 {name} (No Link)</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
