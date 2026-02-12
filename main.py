@@ -86,7 +86,8 @@ def show_table(df):
         if "Date" in col or "Updated" in col:
             col_config[col] = st.column_config.DateColumn(col, format="MM/DD/YYYY")
         elif any(x in col for x in ['Cost', 'Price', 'Amount', 'Revenue', 'Total', 'Balance', 'Profit', 'Debit', 'Credit']):
-             col_config[col] = st.column_config.NumberColumn(col, format="$%.2f")
+             # FIXED: Added comma to format string "$%,.2f"
+             col_config[col] = st.column_config.NumberColumn(col, format="$%,.2f")
         elif "Margin" in col or "%" in col:
             col_config[col] = st.column_config.NumberColumn(col, format="%.1f%%")
 
@@ -293,7 +294,7 @@ def main():
             if not bank_log.empty:
                 df_display = format_df(bank_log)
                 # --- FIX: HIDE UNWANTED COLUMNS ---
-                unwanted = ["From Account", "To Account"]
+                unwanted = ["From Account", "To Account", "Notes"]
                 df_display = df_display.drop(columns=[c for c in unwanted if c in df_display.columns])
                 show_table(df_display)
 
