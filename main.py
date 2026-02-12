@@ -60,6 +60,14 @@ def format_df(df):
     display_df = df.copy()
     display_df.columns = [col.strip().title() for col in display_df.columns]
     
+    # --- CLEANING: REMOVE REPEATED HEADER ROWS ---
+    # This filters out any row where the content of the first cell matches the column header
+    # e.g., Removes the row ("Item Name", "Description") that appears inside the data
+    if not display_df.empty:
+        first_col = display_df.columns[0]
+        # Filter: Keep rows where (Column 1 Value) != (Column 1 Name)
+        display_df = display_df[display_df[first_col].astype(str).str.strip().str.lower() != first_col.strip().lower()]
+
     money_cols = ['Cost', 'Amount', 'Price', 'Revenue', 'Total', 'Debit', 'Credit', 'Balance', 'Value', 'Unit Cost', 'Recipe Cost', 'Profit', 'Menu Price', 'Line Total']
     for col in display_df.columns:
         if col in money_cols: display_df[col] = display_df[col].apply(clean_currency)
@@ -169,7 +177,7 @@ def main():
     tot_exp = sum(clean_currency(row.get('cost') or row.get('amount') or 0) for i, row in expenses.iterrows()) if not expenses.empty else 0
     tot_sale = sum(clean_currency(row.get('revenue') or row.get('amount') or 0) for i, row in sales.iterrows()) if not sales.empty else 0
     
-    # Net Position (The "Hole")
+    # Net Position (Liquid Assets - Debt)
     net_position = northern_bank_bal - current_debt
 
     # Weekly P&L Logic
@@ -243,7 +251,7 @@ def main():
         """, unsafe_allow_html=True)
 
         # Weekly Breakdown
-        st.markdown("### 📅 This Week's Performance")
+        st.markdown("### 📅 This Week's Performance (Mon-Sun)")
         c1, c2, c3 = st.columns(3)
         c1.metric("Incoming (Sales)", f"${wk_sales:,.2f}")
         c2.metric("Outgoing (Expenses)", f"${wk_exp:,.2f}")
@@ -261,7 +269,7 @@ def main():
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0")
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("No activity recorded for this week yet.")
+            st.info("No activity recorded for this week yet. Go sell some pizza!")
 
     # --- TAB 3: BANKING ---
     with tabs[2]:
