@@ -62,7 +62,6 @@ def format_df(df):
     display_df.columns = [col.strip().title() for col in display_df.columns]
 
     # --- CLEANING: REMOVE REPEATED HEADER ROWS ---
-    # This filters out any row where the content of the first cell matches the column header
     if not display_df.empty:
         first_col = display_df.columns[0]
         display_df = display_df[display_df[first_col].astype(str).str.strip().str.lower() != first_col.strip().lower()]
@@ -83,10 +82,10 @@ def show_table(df):
     for col in df.columns:
         if "Date" in col or "Updated" in col:
             col_config[col] = st.column_config.DateColumn(col, format="MM/DD/YYYY")
-        # --- FIX 1: ADD COMMA SEPARATOR TO CURRENCY ---
+        # --- FORMAT CURRENCY ---
         elif any(x in col for x in ['Cost', 'Price', 'Amount', 'Revenue', 'Total', 'Balance', 'Profit', 'Debit', 'Credit']):
-             col_config[col] = st.column_config.NumberColumn(col, format="$%,.2f")
-        # --- FIX 2: ADD PERCENTAGE FORMATTING ---
+             col_config[col] = st.column_config.NumberColumn(col, format="$%.2f")
+        # --- FORMAT PERCENTAGE ---
         elif "Margin" in col or "%" in col:
             col_config[col] = st.column_config.NumberColumn(col, format="%.1f%%")
 
@@ -420,13 +419,16 @@ def main():
                     df_rec['match_ing'] = df_rec[r_ing].str.lower().str.strip()
                     df_rec['qty_clean'] = df_rec[r_qty].apply(clean_currency)
 
-                    # --- FIX 3: BETTER MATCHING & WARNINGS ---
                     merged = pd.merge(df_rec, df_ing, left_on='match_ing', right_on='match_item', how='left')
                     
-                    # Check for failed ingredient matches
-                    unmatched_ingredients = merged[merged['unit_cost'].isna()]['match_ing'].unique()
+                    # --- FIX: FILL MISSING COSTS WITH 0 ---
+                    merged['unit_cost'] = merged['unit_cost'].fillna(0.0)
+                    
+                    # WARNINGS (Collapsible)
+                    unmatched_ingredients = merged[merged['unit_cost'] == 0]['match_ing'].unique()
                     if len(unmatched_ingredients) > 0:
-                        st.warning(f"⚠️ Could not find costs for these ingredients in recipes: {', '.join(unmatched_ingredients)}. Check spelling in 'Ingredients' vs 'Recipes' sheets.")
+                        with st.expander("⚠️ Missing Cost Data (Click to View)"):
+                            st.warning(f"The following ingredients have $0.00 cost (Check spelling in 'Ingredients' sheet): {', '.join(unmatched_ingredients)}")
 
                     merged['line_cost'] = merged['qty_clean'] * merged['unit_cost']
 
@@ -439,20 +441,16 @@ def main():
                     m_name = next((c for c in df_menu.columns if 'item' in c or 'name' in c), 'item name')
                     m_price = next((c for c in df_menu.columns if 'price' in c), 'price')
 
-                    # --- FIX 3: SMARTER MENU MATCHING (Ignores "(12")") ---
                     df_menu['match_menu'] = df_menu[m_name].astype(str).str.replace(r"\s*\(.*?\)", "", regex=True).str.strip().str.lower()
                     df_menu['clean_price'] = df_menu[m_price].apply(clean_currency)
 
                     final = pd.merge(df_menu, recipe_costs, left_on='match_menu', right_on='match_recipe', how='left')
-                    
-                    # Check for failed menu-to-recipe matches
-                    unmatched_menu_items = final[final['Recipe Cost'].isna()][m_name].unique()
-                    if len(unmatched_menu_items) > 0:
-                         st.warning(f"⚠️ Could not find recipes for these menu items: {', '.join(unmatched_menu_items)}. Check spelling in 'Menu' vs 'Recipes' sheets.")
-
                     final['Recipe Cost'] = final['Recipe Cost'].fillna(0)
                     final['Profit'] = final['clean_price'] - final['Recipe Cost']
                     final['Margin %'] = ((final['Profit'] / final['clean_price']) * 100).fillna(0)
+
+                    # --- ROUNDING FOR CLEAN DISPLAY ---
+                    final = final.round(2)
 
                     show_table(final[[m_name, 'clean_price', 'Recipe Cost', 'Profit', 'Margin %']].rename(columns={'clean_price':'Menu Price'}))
                 except Exception as e:
