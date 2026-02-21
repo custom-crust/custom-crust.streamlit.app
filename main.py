@@ -356,13 +356,14 @@ def main():
     with tabs[4]:
         st.write("##")
         with st.form("exp"):
-            c1, c2, c3, c4 = st.columns(4)
+            c1, c2, c3, c4, c5 = st.columns(5)
             item = c1.text_input("Item")
             cost = c2.number_input("Cost ($)", 0.0)
             cat = c3.selectbox("Category", ["Ingredients & Supplies", "Fuel & Propane", "Smallwares & Utensils", "Equipment", "Equipment Maintenance", "Licensing & Legal", "Rent", "Labor", "Startup Asset / Initial Investment", "Other"])
             pay = c4.selectbox("Paid Via", ["Northern Bank Debit Card", "Cash / Undeposited", "Owner Personal Funds / Equity"])
+            dt = c5.date_input("Date", datetime.today(), format="MM/DD/YYYY")
             if st.form_submit_button("Save"):
-                new_row = pd.DataFrame([{"item": item, "cost": cost, "category": cat, "paid via": pay, "date": datetime.today().strftime("%Y-%m-%d")}])
+                new_row = pd.DataFrame([{"item": item, "cost": cost, "category": cat, "paid via": pay, "date": dt.strftime("%Y-%m-%d")}])
                 updated_df = pd.concat([expenses, new_row], ignore_index=True)
                 if update_sheet("Ledger", updated_df): st.success("Saved!"); st.rerun()
         if not expenses.empty: show_table(format_df(expenses))
