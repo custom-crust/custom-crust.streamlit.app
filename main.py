@@ -240,7 +240,9 @@ def main():
                     df['clean'] = df[cost_col].apply(clean_currency)
                     if df['clean'].sum() > 0:
                         fig = px.pie(df, values='clean', names='category', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
-                        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0", height=300, margin=dict(t=0, b=0, l=0, r=0))
+                        # CLEAN HOVER & FIX PADDING
+                        fig.update_traces(hovertemplate="<b>%{label}</b><br>Amount: $%{value:,.2f}<br>%{percent}")
+                        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0", height=300, margin=dict(t=20, b=20, l=20, r=20))
                         st.plotly_chart(fig, use_container_width=True)
         with c2:
             st.markdown("#### 💰 Sales Source")
@@ -252,7 +254,9 @@ def main():
                     df_s['clean_rev'] = df_s[rev_col].apply(clean_currency)
                     if df_s['clean_rev'].sum() > 0:
                         figS = px.pie(df_s, values='clean_rev', names=cat_col, hole=0.6, color_discrete_sequence=px.colors.qualitative.Set3)
-                        figS.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0", height=300, margin=dict(t=0, b=0, l=0, r=0))
+                        # CLEAN HOVER & FIX PADDING
+                        figS.update_traces(hovertemplate="<b>%{label}</b><br>Amount: $%{value:,.2f}<br>%{percent}")
+                        figS.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0", height=300, margin=dict(t=20, b=20, l=20, r=20))
                         st.plotly_chart(figS, use_container_width=True)
 
     # --- TAB 2: P&L ---
