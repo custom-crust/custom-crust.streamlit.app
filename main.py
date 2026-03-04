@@ -70,7 +70,6 @@ def format_df(df):
     display_df.columns = [col.strip().title() for col in display_df.columns]
 
     # --- CLEANING: REMOVE REPEATED HEADER ROWS ---
-    # This checks if the first column's value matches the header name (case-insensitive)
     if not display_df.empty:
         first_col = display_df.columns[0]
         display_df = display_df[display_df[first_col].astype(str).str.strip().str.lower() != first_col.strip().lower()]
@@ -240,7 +239,6 @@ def main():
                     df['clean'] = df[cost_col].apply(clean_currency)
                     if df['clean'].sum() > 0:
                         fig = px.pie(df, values='clean', names='category', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
-                        # CLEAN HOVER & FIX PADDING
                         fig.update_traces(hovertemplate="<b>%{label}</b><br>Amount: $%{value:,.2f}<br>%{percent}")
                         fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0", height=300, margin=dict(t=20, b=20, l=20, r=20))
                         st.plotly_chart(fig, use_container_width=True)
@@ -254,7 +252,6 @@ def main():
                     df_s['clean_rev'] = df_s[rev_col].apply(clean_currency)
                     if df_s['clean_rev'].sum() > 0:
                         figS = px.pie(df_s, values='clean_rev', names=cat_col, hole=0.6, color_discrete_sequence=px.colors.qualitative.Set3)
-                        # CLEAN HOVER & FIX PADDING
                         figS.update_traces(hovertemplate="<b>%{label}</b><br>Amount: $%{value:,.2f}<br>%{percent}")
                         figS.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0", height=300, margin=dict(t=20, b=20, l=20, r=20))
                         st.plotly_chart(figS, use_container_width=True)
@@ -304,19 +301,18 @@ def main():
                 b_desc = st.text_input("Description")
                 b_date = st.date_input("Date", datetime.today(), format="MM/DD/YYYY")
                 if st.form_submit_button("Submit"):
-                    new_row = pd.DataFrame([{"type": b_type, "amount": b_amt, "description": b_desc, "date": b_date.strftime("%Y-%m-%d")}])
+                    new_row = pd.DataFrame([{"type": b_type, "amount": b_amt, "description": b_desc, "date": pd.to_datetime(b_date)}])
                     updated_df = pd.concat([bank_log, new_row], ignore_index=True)
                     if update_sheet("Bank_Log", updated_df): st.success("Logged!"); st.rerun()
         with c2:
             st.markdown("#### Activity Log")
             if not bank_log.empty:
                 df_display = format_df(bank_log)
-                # --- HIDE UNWANTED COLUMNS ---
                 unwanted = ["From Account", "To Account", "Notes"]
                 df_display = df_display.drop(columns=[c for c in unwanted if c in df_display.columns])
                 show_table(df_display)
 
-    # --- TAB 4: SALES (RESTORED METRICS) ---
+    # --- TAB 4: SALES ---
     with tabs[3]:
         st.write("##")
         c1, c2 = st.columns([1, 2])
@@ -326,14 +322,13 @@ def main():
                 cat = st.selectbox("Category", ["Catering", "Food Festival", "Street Service / Truck", "Online Order", "Other"])
                 desc = st.text_input("Event Name")
                 amt = st.number_input("Revenue ($)", 0.0)
-                date = st.date_input("Date", datetime.today(), format="MM/DD/YYYY")
+                sale_date = st.date_input("Date", datetime.today(), format="MM/DD/YYYY")
                 if st.form_submit_button("Log Sale"):
-                    new_row = pd.DataFrame([{"category": cat, "event": desc, "revenue": amt, "date": date.strftime("%Y-%m-%d")}])
+                    new_row = pd.DataFrame([{"category": cat, "event": desc, "revenue": amt, "date": pd.to_datetime(sale_date)}])
                     updated_df = pd.concat([sales, new_row], ignore_index=True)
                     if update_sheet("Sales", updated_df): st.success("Logged!"); st.rerun()
 
         with c2:
-            # --- SALES DASHBOARD LOGIC ---
             ytd_val, mtd_val, week_val, last_week_val = 0.0, 0.0, 0.0, 0.0
             if not sales.empty:
                 df_s = sales.copy()
@@ -365,9 +360,9 @@ def main():
             cost = c2.number_input("Cost ($)", 0.0)
             cat = c3.selectbox("Category", ["Ingredients & Supplies", "Fuel & Propane", "Smallwares & Utensils", "Equipment", "Equipment Maintenance", "Licensing & Legal", "Rent", "Labor", "Startup Asset / Initial Investment", "Other"])
             pay = c4.selectbox("Paid Via", ["Northern Bank Debit Card", "Cash / Undeposited", "Owner Personal Funds / Equity"])
-            dt = c5.date_input("Date", datetime.today(), format="MM/DD/YYYY")
+            exp_date = c5.date_input("Date", datetime.today(), format="MM/DD/YYYY")
             if st.form_submit_button("Save"):
-                new_row = pd.DataFrame([{"item": item, "cost": cost, "category": cat, "paid via": pay, "date": dt.strftime("%Y-%m-%d")}])
+                new_row = pd.DataFrame([{"item": item, "cost": cost, "category": cat, "paid via": pay, "date": pd.to_datetime(exp_date)}])
                 updated_df = pd.concat([expenses, new_row], ignore_index=True)
                 if update_sheet("Ledger", updated_df): st.success("Saved!"); st.rerun()
         if not expenses.empty: show_table(format_df(expenses))
@@ -385,9 +380,9 @@ def main():
             name = c1.text_input("Name")
             dtype = c2.selectbox("Type", ["Repay", "Borrow"])
             amt = c3.number_input("Amount ($)", 0.0)
-            dt = c4.date_input("Date", datetime.today(), format="MM/DD/YYYY")
+            debt_dt = c4.date_input("Date", datetime.today(), format="MM/DD/YYYY")
             if st.form_submit_button("Log"):
-                new_row = pd.DataFrame([{"loan name": name, "transaction type": dtype, "amount": amt, "date": dt.strftime("%Y-%m-%d")}])
+                new_row = pd.DataFrame([{"loan name": name, "transaction type": dtype, "amount": amt, "date": pd.to_datetime(debt_dt)}])
                 updated_df = pd.concat([debt, new_row], ignore_index=True)
                 if update_sheet("Debt_Log", updated_df): st.success("Logged!"); st.rerun()
         if not debt.empty: show_table(format_df(debt))
@@ -448,7 +443,6 @@ def main():
                 st.info("⚠️ Need Ingredients, Recipes, and Menu data to calculate profit.")
             else:
                 try:
-                    # 1. Calculate Ingredient Unit Costs
                     df_ing = ingredients.copy()
                     c_cost = next((c for c in df_ing.columns if 'cost' in c), 'cost')
                     c_yield = next((c for c in df_ing.columns if 'yield' in c), 'yield')
@@ -457,7 +451,6 @@ def main():
                     df_ing['unit_cost'] = df_ing[c_cost].apply(clean_currency) / df_ing[c_yield].apply(clean_currency).replace(0, 1)
                     df_ing['match_item'] = df_ing[c_item].str.lower().str.strip()
 
-                    # 2. Calculate Recipe Costs
                     df_rec = recipes.copy()
                     r_name = next((c for c in df_rec.columns if 'recipe' in c), 'recipe')
                     r_ing = next((c for c in df_rec.columns if 'ingredient' in c), 'ingredient')
@@ -467,23 +460,18 @@ def main():
                     df_rec['qty_clean'] = df_rec[r_qty].apply(clean_currency)
 
                     merged = pd.merge(df_rec, df_ing, left_on='match_ing', right_on='match_item', how='left')
-                    
-                    # FILL MISSING COSTS WITH 0
                     merged['unit_cost'] = merged['unit_cost'].fillna(0.0)
                     
-                    # WARNINGS (Collapsible)
                     unmatched_ingredients = merged[merged['unit_cost'] == 0]['match_ing'].unique()
                     if len(unmatched_ingredients) > 0:
                         with st.expander("⚠️ Missing Cost Data (Click to View)"):
-                            st.warning(f"The following ingredients have $0.00 cost (Check spelling in 'Ingredients' sheet): {', '.join(unmatched_ingredients)}")
+                            st.warning(f"The following ingredients have $0.00 cost: {', '.join(unmatched_ingredients)}")
 
                     merged['line_cost'] = merged['qty_clean'] * merged['unit_cost']
-
                     recipe_costs = merged.groupby(r_name)['line_cost'].sum().reset_index()
                     recipe_costs.rename(columns={'line_cost': 'Recipe Cost', r_name: 'Recipe Name'}, inplace=True)
                     recipe_costs['match_recipe'] = recipe_costs['Recipe Name'].str.lower().str.strip()
 
-                    # 3. Compare with Menu Price
                     df_menu = menu.copy()
                     m_name = next((c for c in df_menu.columns if 'item' in c or 'name' in c), 'item name')
                     m_price = next((c for c in df_menu.columns if 'price' in c), 'price')
@@ -496,22 +484,18 @@ def main():
                     final['Profit'] = final['clean_price'] - final['Recipe Cost']
                     final['Margin %'] = ((final['Profit'] / final['clean_price']) * 100).fillna(0)
 
-                    # ROUNDING
                     final = final.round(2)
-                    
-                    # --- WRAPPED IN FORMAT_DF TO FIX HEADER/DUPLICATE ROW ---
                     display_profit = final[[m_name, 'clean_price', 'Recipe Cost', 'Profit', 'Margin %']].rename(columns={'clean_price':'Menu Price'})
                     show_table(format_df(display_profit))
-                    
                 except Exception as e:
                     st.error(f"Calculation Error: {e}")
 
         with sub2:
             with st.expander("➕ Add Vendor"):
                 with st.form("v"):
-                    n = st.text_input("Name"); c = st.text_input("Cat"); p = st.text_input("Prod"); ph = st.text_input("Phone"); em = st.text_input("Email")
+                    vn = st.text_input("Name"); vc = st.text_input("Cat"); vp = st.text_input("Prod"); vph = st.text_input("Phone"); vem = st.text_input("Email")
                     if st.form_submit_button("Save"):
-                        new_row = pd.DataFrame([{"vendor name": n, "category": c, "products": p, "phone": ph, "email": em}])
+                        new_row = pd.DataFrame([{"vendor name": vn, "category": vc, "products": vp, "phone": vph, "email": vem}])
                         updated_df = pd.concat([vendors, new_row], ignore_index=True)
                         if update_sheet("Vendors", updated_df): st.success("Saved!"); st.rerun()
             st.write("---")
@@ -526,9 +510,9 @@ def main():
         with sub4:
             with st.expander("➕ Add Document"):
                 with st.form("d"):
-                    n = st.text_input("Document Name"); l = st.text_input("Link (URL)");
+                    dn = st.text_input("Document Name"); dl = st.text_input("Link (URL)");
                     if st.form_submit_button("Save"):
-                         new_row = pd.DataFrame([{"document name": n, "link": l}])
+                         new_row = pd.DataFrame([{"document name": dn, "link": dl}])
                          updated_df = pd.concat([vault, new_row], ignore_index=True)
                          if update_sheet("Vault_Index", updated_df): st.success("Saved!"); st.rerun()
             st.write("---")
