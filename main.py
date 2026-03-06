@@ -123,7 +123,6 @@ def load_data():
     
     for key, sheet_name in tabs.items():
         try:
-            # INCREASED TTL TO 600 SECONDS (10 MINUTES) TO FIX API LIMITS
             df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=600)
             df.columns = [str(c).strip().lower() for c in df.columns]
             if 'date' in df.columns:
@@ -295,7 +294,7 @@ def main():
         st.markdown(f"### 🏦 Northern Bank Balance: **${northern_bank_bal:,.2f}**")
         c1, c2 = st.columns(2)
         with c1:
-            with st.form("bank_op"):
+            with st.form("bank_op", clear_on_submit=True):
                 st.markdown("#### Transaction")
                 b_type = st.selectbox("Type", ["Deposit", "Withdrawal"])
                 b_amt = st.number_input("Amount ($)", 0.0)
@@ -322,7 +321,7 @@ def main():
         c1, c2 = st.columns([1, 2])
         with c1:
             st.markdown("### Log Sale")
-            with st.form("sale"):
+            with st.form("sale", clear_on_submit=True):
                 cat = st.selectbox("Category", ["Catering", "Food Festival", "Street Service / Truck", "Online Order", "Other"])
                 desc = st.text_input("Event Name")
                 amt = st.number_input("Revenue ($)", 0.0)
@@ -361,7 +360,7 @@ def main():
     # --- TAB 5: EXPENSES ---
     with tabs[4]:
         st.write("##")
-        with st.form("exp"):
+        with st.form("exp", clear_on_submit=True):
             c1, c2, c3, c4, c5 = st.columns(5)
             item = c1.text_input("Item")
             cost = c2.number_input("Cost ($)", 0.0)
@@ -385,7 +384,7 @@ def main():
         c2.metric("🟢 Paid Off", f"${repaid:,.2f}")
         c3.metric("🟡 Remaining", f"${current_debt:,.2f}")
         st.write("---")
-        with st.form("debt"):
+        with st.form("debt", clear_on_submit=True):
             c1, c2, c3, c4 = st.columns(4)
             name = c1.text_input("Name")
             dtype = c2.selectbox("Type", ["Repay", "Borrow"])
@@ -439,7 +438,7 @@ def main():
         st.write("##")
         if not menu.empty: show_table(format_df(menu))
         with st.expander("Add Item"):
-            with st.form("menu"):
+            with st.form("menu", clear_on_submit=True):
                 name = st.text_input("Name"); price = st.number_input("Price", 0.0)
                 if st.form_submit_button("Add"):
                     new_row = pd.DataFrame([{"item name": name, "price": price}])
@@ -508,7 +507,7 @@ def main():
 
         with sub2:
             with st.expander("➕ Add Vendor"):
-                with st.form("v"):
+                with st.form("v", clear_on_submit=True):
                     vn = st.text_input("Name"); vc = st.text_input("Cat"); vp = st.text_input("Prod"); vph = st.text_input("Phone"); vem = st.text_input("Email")
                     if st.form_submit_button("Save"):
                         new_row = pd.DataFrame([{"vendor name": vn, "category": vc, "products": vp, "phone": vph, "email": vem}])
@@ -528,7 +527,7 @@ def main():
 
         with sub4:
             with st.expander("➕ Add Document"):
-                with st.form("d"):
+                with st.form("d", clear_on_submit=True):
                     dn = st.text_input("Document Name"); dl = st.text_input("Link (URL)");
                     if st.form_submit_button("Save"):
                          new_row = pd.DataFrame([{"document name": dn, "link": dl}])
