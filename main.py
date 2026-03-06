@@ -123,7 +123,8 @@ def load_data():
     
     for key, sheet_name in tabs.items():
         try:
-            df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=5)
+            # INCREASED TTL TO 600 SECONDS (10 MINUTES) TO FIX API LIMITS
+            df = conn.read(spreadsheet=SHEET_URL, worksheet=sheet_name, ttl=600)
             df.columns = [str(c).strip().lower() for c in df.columns]
             if 'date' in df.columns:
                 df['date'] = pd.to_datetime(df['date'], errors='coerce')
@@ -303,7 +304,10 @@ def main():
                 if st.form_submit_button("Submit"):
                     new_row = pd.DataFrame([{"type": b_type, "amount": b_amt, "description": b_desc, "date": pd.to_datetime(b_date)}])
                     updated_df = pd.concat([bank_log, new_row], ignore_index=True)
-                    if update_sheet("Bank_Log", updated_df): st.success("Logged!"); st.rerun()
+                    if update_sheet("Bank_Log", updated_df): 
+                        st.cache_data.clear()
+                        st.success("Logged!")
+                        st.rerun()
         with c2:
             st.markdown("#### Activity Log")
             if not bank_log.empty:
@@ -326,7 +330,10 @@ def main():
                 if st.form_submit_button("Log Sale"):
                     new_row = pd.DataFrame([{"category": cat, "event": desc, "revenue": amt, "date": pd.to_datetime(sale_date)}])
                     updated_df = pd.concat([sales, new_row], ignore_index=True)
-                    if update_sheet("Sales", updated_df): st.success("Logged!"); st.rerun()
+                    if update_sheet("Sales", updated_df): 
+                        st.cache_data.clear()
+                        st.success("Logged!")
+                        st.rerun()
 
         with c2:
             ytd_val, mtd_val, week_val, last_week_val = 0.0, 0.0, 0.0, 0.0
@@ -364,7 +371,10 @@ def main():
             if st.form_submit_button("Save"):
                 new_row = pd.DataFrame([{"item": item, "cost": cost, "category": cat, "paid via": pay, "date": pd.to_datetime(exp_date)}])
                 updated_df = pd.concat([expenses, new_row], ignore_index=True)
-                if update_sheet("Ledger", updated_df): st.success("Saved!"); st.rerun()
+                if update_sheet("Ledger", updated_df): 
+                    st.cache_data.clear()
+                    st.success("Saved!")
+                    st.rerun()
         if not expenses.empty: show_table(format_df(expenses))
 
     # --- TAB 6: DEBT ---
@@ -384,7 +394,10 @@ def main():
             if st.form_submit_button("Log"):
                 new_row = pd.DataFrame([{"loan name": name, "transaction type": dtype, "amount": amt, "date": pd.to_datetime(debt_dt)}])
                 updated_df = pd.concat([debt, new_row], ignore_index=True)
-                if update_sheet("Debt_Log", updated_df): st.success("Logged!"); st.rerun()
+                if update_sheet("Debt_Log", updated_df): 
+                    st.cache_data.clear()
+                    st.success("Logged!")
+                    st.rerun()
         if not debt.empty: show_table(format_df(debt))
 
     # --- TAB 7: QUOTE BUILDER ---
@@ -431,7 +444,10 @@ def main():
                 if st.form_submit_button("Add"):
                     new_row = pd.DataFrame([{"item name": name, "price": price}])
                     updated_df = pd.concat([menu, new_row], ignore_index=True)
-                    if update_sheet("Menu", updated_df): st.success("Added!"); st.rerun()
+                    if update_sheet("Menu", updated_df): 
+                        st.cache_data.clear()
+                        st.success("Added!")
+                        st.rerun()
 
     # --- TAB 9: TOOLS ---
     with tabs[8]:
@@ -497,7 +513,10 @@ def main():
                     if st.form_submit_button("Save"):
                         new_row = pd.DataFrame([{"vendor name": vn, "category": vc, "products": vp, "phone": vph, "email": vem}])
                         updated_df = pd.concat([vendors, new_row], ignore_index=True)
-                        if update_sheet("Vendors", updated_df): st.success("Saved!"); st.rerun()
+                        if update_sheet("Vendors", updated_df): 
+                            st.cache_data.clear()
+                            st.success("Saved!")
+                            st.rerun()
             st.write("---")
             q = st.text_input("🔍 Search Vendors", "").lower()
             if not vendors.empty:
@@ -514,7 +533,10 @@ def main():
                     if st.form_submit_button("Save"):
                          new_row = pd.DataFrame([{"document name": dn, "link": dl}])
                          updated_df = pd.concat([vault, new_row], ignore_index=True)
-                         if update_sheet("Vault_Index", updated_df): st.success("Saved!"); st.rerun()
+                         if update_sheet("Vault_Index", updated_df): 
+                             st.cache_data.clear()
+                             st.success("Saved!")
+                             st.rerun()
             st.write("---")
             if not vault.empty:
                 for index, row in vault.iterrows():
