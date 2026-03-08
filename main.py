@@ -185,13 +185,13 @@ def main():
     st.markdown("""
         <div class="quick-links-container">
             <a href="https://gemini.google.com/app/ac070496472c1df2?utm_source=g1&utm_medium=paid_media&utm_campaign=sem_geminimarketingpage&gad_source=1&gclid=CjwKCAjw74e1BhBnEiwAbqOAjMfabAJ_Ps-c_DHC1bjpRv5CdN83dbCWBdGF2c5yftRXqiHFj-iI-xoCUNcQAvD_BwE" target="_blank" title="Gemini Assistant">
-                <img class="quick-link-icon" src="https://upload.wikimedia.org/wikipedia/commons/8/87/Google_Gemini_logo.svg" alt="Gemini">
+                <img class="quick-link-icon" src="https://img.icons8.com/color/96/google-gemini.png" alt="Gemini">
             </a>
             <a href="https://secure.nbtc.com/nbtconlinebanking/uux.aspx#/login" target="_blank" title="Northern Bank">
-                <img class="quick-link-icon" src="https://img.icons8.com/color/48/bank-building.png" alt="Northern Bank">
+                <img class="quick-link-icon" src="https://img.icons8.com/color/96/bank-building.png" alt="Northern Bank">
             </a>
             <a href="https://outlook.live.com/mail/0/" target="_blank" title="CCK Email">
-                <img class="quick-link-icon" src="https://upload.wikimedia.org/wikipedia/commons/d/df/Microsoft_Office_Outlook_%282018%E2%80%93present%29.svg" alt="Outlook">
+                <img class="quick-link-icon" src="https://img.icons8.com/fluency/96/microsoft-outlook-2019.png" alt="Outlook">
             </a>
             <a href="https://www.instagram.com/customcrustkitchen/" target="_blank" title="Instagram">
                 <img class="quick-link-icon" src="https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg" alt="Instagram">
