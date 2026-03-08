@@ -51,6 +51,27 @@ st.markdown("""
         padding: 10px; display: block; border-bottom: 1px solid #30363d;
     }
     .vault-link:hover {color: #4CAF50; background-color: #1c2128;}
+
+    /* --- CUSTOM COMMAND CENTER CSS --- */
+    .quick-links-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 50px;
+        padding-bottom: 25px;
+        border-bottom: 1px solid #333;
+        margin-bottom: 25px;
+        margin-top: -10px;
+    }
+    .quick-link-icon {
+        width: 45px;
+        height: 45px;
+        transition: transform 0.2s ease, filter 0.2s ease;
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    }
+    .quick-link-icon:hover {
+        transform: scale(1.15) translateY(-3px);
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -160,14 +181,23 @@ def main():
 
     if error: st.error(f"🚨 Connection Error: {error}")
 
-    # --- QUICK LINKS COMMAND CENTER ---
-    st.write("") 
-    l1, l2, l3, l4 = st.columns(4)
-    l1.link_button("🤖 Gemini Assistant", "https://gemini.google.com/app/ac070496472c1df2?utm_source=g1&utm_medium=paid_media&utm_campaign=sem_geminimarketingpage&gad_source=1&gclid=CjwKCAjw74e1BhBnEiwAbqOAjMfabAJ_Ps-c_DHC1bjpRv5CdN83dbCWBdGF2c5yftRXqiHFj-iI-xoCUNcQAvD_BwE", use_container_width=True)
-    l2.link_button("🏦 Northern Bank", "https://secure.nbtc.com/nbtconlinebanking/uux.aspx#/login", use_container_width=True)
-    l3.link_button("📧 CCK Email", "https://outlook.live.com/mail/0/", use_container_width=True)
-    l4.link_button("📸 Instagram", "https://www.instagram.com/customcrustkitchen/", use_container_width=True)
-    st.write("---") 
+    # --- QUICK LINKS COMMAND CENTER (IMAGE LOGOS) ---
+    st.markdown("""
+        <div class="quick-links-container">
+            <a href="https://gemini.google.com/app/ac070496472c1df2?utm_source=g1&utm_medium=paid_media&utm_campaign=sem_geminimarketingpage&gad_source=1&gclid=CjwKCAjw74e1BhBnEiwAbqOAjMfabAJ_Ps-c_DHC1bjpRv5CdN83dbCWBdGF2c5yftRXqiHFj-iI-xoCUNcQAvD_BwE" target="_blank" title="Gemini Assistant">
+                <img class="quick-link-icon" src="https://upload.wikimedia.org/wikipedia/commons/8/87/Google_Gemini_logo.svg" alt="Gemini">
+            </a>
+            <a href="https://secure.nbtc.com/nbtconlinebanking/uux.aspx#/login" target="_blank" title="Northern Bank">
+                <img class="quick-link-icon" src="https://img.icons8.com/color/48/bank-building.png" alt="Northern Bank">
+            </a>
+            <a href="https://outlook.live.com/mail/0/" target="_blank" title="CCK Email">
+                <img class="quick-link-icon" src="https://upload.wikimedia.org/wikipedia/commons/d/df/Microsoft_Office_Outlook_%282018%E2%80%93present%29.svg" alt="Outlook">
+            </a>
+            <a href="https://www.instagram.com/customcrustkitchen/" target="_blank" title="Instagram">
+                <img class="quick-link-icon" src="https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg" alt="Instagram">
+            </a>
+        </div>
+    """, unsafe_allow_html=True)
 
     tabs = st.tabs(["📊 Dashboard", "📉 P&L", "🏦 Banking", "💰 Sales", "📝 Expenses", "📉 Debt", "📅 Quote", "🍕 Menu", "📂 Tools"])
 
