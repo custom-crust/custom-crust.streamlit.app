@@ -136,7 +136,7 @@ def load_data():
     data = {}
     tabs = {
         "assets": "Assets", "expenses": "Ledger", "sales": "Sales",
-        "menu": "Menu", "vault": "Vault_Index", "debt": "Debt_Log",
+        "menu": "Menu", "vault": "Vault_Index", "vault_debt": "Debt_Log",
         "ingredients": "Ingredients", "recipes": "Recipes", "vendors": "Vendors",
         "bank_log": "Bank_Log"
     }
@@ -171,7 +171,7 @@ def main():
 
     data, error = load_data()
     assets, expenses, sales = data['assets'], data['expenses'], data['sales']
-    menu, vault, debt = data['menu'], data['vault'], data['debt']
+    menu, vault, debt = data['menu'], data['vault'], data['vault_debt']
     ingredients, recipes, vendors = data['ingredients'], data['recipes'], data['vendors']
     bank_log = data['bank_log']
 
