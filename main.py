@@ -64,8 +64,9 @@ st.markdown("""
         margin-top: -10px;
     }
     .quick-link-icon {
-        width: 45px;
-        height: 45px;
+        width: 42px;
+        height: 42px;
+        object-fit: contain;
         transition: transform 0.2s ease, filter 0.2s ease;
         filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
     }
@@ -185,7 +186,7 @@ def main():
     st.markdown("""
         <div class="quick-links-container">
             <a href="https://gemini.google.com/app/ac070496472c1df2?utm_source=g1&utm_medium=paid_media&utm_campaign=sem_geminimarketingpage&gad_source=1&gclid=CjwKCAjw74e1BhBnEiwAbqOAjMfabAJ_Ps-c_DHC1bjpRv5CdN83dbCWBdGF2c5yftRXqiHFj-iI-xoCUNcQAvD_BwE" target="_blank" title="Gemini Assistant">
-                <img class="quick-link-icon" src="https://img.icons8.com/color/96/google-gemini.png" alt="Gemini">
+                <img class="quick-link-icon" src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Google_Gemini_logo.svg/200px-Google_Gemini_logo.svg.png" alt="Gemini">
             </a>
             <a href="https://secure.nbtc.com/nbtconlinebanking/uux.aspx#/login" target="_blank" title="Northern Bank">
                 <img class="quick-link-icon" src="https://img.icons8.com/color/96/bank-building.png" alt="Northern Bank">
@@ -194,7 +195,7 @@ def main():
                 <img class="quick-link-icon" src="https://img.icons8.com/fluency/96/microsoft-outlook-2019.png" alt="Outlook">
             </a>
             <a href="https://www.instagram.com/customcrustkitchen/" target="_blank" title="Instagram">
-                <img class="quick-link-icon" src="https://upload.wikimedia.org/wikipedia/commons/e/e7/Instagram_logo_2016.svg" alt="Instagram">
+                <img class="quick-link-icon" src="https://img.icons8.com/fluency/96/instagram-new.png" alt="Instagram">
             </a>
         </div>
     """, unsafe_allow_html=True)
