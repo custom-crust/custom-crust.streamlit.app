@@ -160,6 +160,15 @@ def main():
 
     if error: st.error(f"🚨 Connection Error: {error}")
 
+    # --- QUICK LINKS COMMAND CENTER ---
+    st.write("") 
+    l1, l2, l3, l4 = st.columns(4)
+    l1.link_button("🤖 Gemini Assistant", "https://gemini.google.com/app/ac070496472c1df2?utm_source=g1&utm_medium=paid_media&utm_campaign=sem_geminimarketingpage&gad_source=1&gclid=CjwKCAjw74e1BhBnEiwAbqOAjMfabAJ_Ps-c_DHC1bjpRv5CdN83dbCWBdGF2c5yftRXqiHFj-iI-xoCUNcQAvD_BwE", use_container_width=True)
+    l2.link_button("🏦 Northern Bank", "https://secure.nbtc.com/nbtconlinebanking/uux.aspxlandingPage", use_container_width=True)
+    l3.link_button("📧 CCK Email", "https://outlook.live.com/mail/0/", use_container_width=True)
+    l4.link_button("📸 Instagram", "https://www.instagram.com/customcrustkitchen/", use_container_width=True)
+    st.write("---") 
+
     tabs = st.tabs(["📊 Dashboard", "📉 P&L", "🏦 Banking", "💰 Sales", "📝 Expenses", "📉 Debt", "📅 Quote", "🍕 Menu", "📂 Tools"])
 
     # --- SHARED CALCS ---
