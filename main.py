@@ -186,7 +186,7 @@ def main():
     st.markdown("""
         <div class="quick-links-container">
             <a href="https://gemini.google.com/app/ac070496472c1df2?utm_source=g1&utm_medium=paid_media&utm_campaign=sem_geminimarketingpage&gad_source=1&gclid=CjwKCAjw74e1BhBnEiwAbqOAjMfabAJ_Ps-c_DHC1bjpRv5CdN83dbCWBdGF2c5yftRXqiHFj-iI-xoCUNcQAvD_BwE" target="_blank" title="Gemini Assistant">
-                <img class="quick-link-icon" src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Google_Gemini_logo.svg/200px-Google_Gemini_logo.svg.png" alt="Gemini">
+                <img class="quick-link-icon" src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini">
             </a>
             <a href="https://secure.nbtc.com/nbtconlinebanking/uux.aspx#/login" target="_blank" title="Northern Bank">
                 <img class="quick-link-icon" src="https://img.icons8.com/color/96/bank-building.png" alt="Northern Bank">
