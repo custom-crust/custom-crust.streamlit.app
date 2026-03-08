@@ -63,6 +63,20 @@ st.markdown("""
         margin-bottom: 25px;
         margin-top: -10px;
     }
+    
+    /* Specific styling for Gemini to make it visually match the squares */
+    .gemini-icon {
+        width: 60px;
+        height: 60px;
+        object-fit: contain;
+        transition: transform 0.2s ease, filter 0.2s ease;
+        filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+    }
+    .gemini-icon:hover {
+        transform: scale(1.15) translateY(-3px);
+    }
+
+    /* Standard styling for the square icons */
     .quick-link-icon {
         width: 42px;
         height: 42px;
@@ -136,7 +150,7 @@ def load_data():
     data = {}
     tabs = {
         "assets": "Assets", "expenses": "Ledger", "sales": "Sales",
-        "menu": "Menu", "vault": "Vault_Index", "vault_debt": "Debt_Log",
+        "menu": "Menu", "vault": "Vault_Index", "debt": "Debt_Log",
         "ingredients": "Ingredients", "recipes": "Recipes", "vendors": "Vendors",
         "bank_log": "Bank_Log"
     }
@@ -171,7 +185,7 @@ def main():
 
     data, error = load_data()
     assets, expenses, sales = data['assets'], data['expenses'], data['sales']
-    menu, vault, debt = data['menu'], data['vault'], data['vault_debt']
+    menu, vault, debt = data['menu'], data['vault'], data['debt']
     ingredients, recipes, vendors = data['ingredients'], data['recipes'], data['vendors']
     bank_log = data['bank_log']
 
@@ -186,7 +200,7 @@ def main():
     st.markdown("""
         <div class="quick-links-container">
             <a href="https://gemini.google.com/app/ac070496472c1df2?utm_source=g1&utm_medium=paid_media&utm_campaign=sem_geminimarketingpage&gad_source=1&gclid=CjwKCAjw74e1BhBnEiwAbqOAjMfabAJ_Ps-c_DHC1bjpRv5CdN83dbCWBdGF2c5yftRXqiHFj-iI-xoCUNcQAvD_BwE" target="_blank" title="Gemini Assistant">
-                <img class="quick-link-icon" src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini">
+                <img class="gemini-icon" src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini">
             </a>
             <a href="https://secure.nbtc.com/nbtconlinebanking/uux.aspx#/login" target="_blank" title="Northern Bank">
                 <img class="quick-link-icon" src="https://img.icons8.com/color/96/bank-building.png" alt="Northern Bank">
