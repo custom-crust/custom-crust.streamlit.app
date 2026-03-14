@@ -291,8 +291,10 @@ def main():
                 cost_col = next((c for c in ['cost','amount'] if c in df.columns), None)
                 if cost_col:
                     df['clean'] = df[cost_col].apply(clean_currency)
-                    if df['clean'].sum() > 0:
-                        fig = px.pie(df, values='clean', names='category', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
+                    # --- FIX: Filter out negative numbers for the pie chart ---
+                    pie_df = df[df['clean'] > 0]
+                    if pie_df['clean'].sum() > 0:
+                        fig = px.pie(pie_df, values='clean', names='category', hole=0.6, color_discrete_sequence=px.colors.qualitative.Pastel)
                         fig.update_traces(hovertemplate="<b>%{label}</b><br>Amount: $%{value:,.2f}<br>%{percent}")
                         fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font_color="#b0b0b0", height=300, margin=dict(t=20, b=20, l=20, r=20))
                         st.plotly_chart(fig, use_container_width=True)
