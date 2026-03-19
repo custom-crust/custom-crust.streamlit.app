@@ -140,8 +140,8 @@ def load_gsheets():
 def main():
     vault_df = load_gsheets()
 
-    # Dynamic Centered Logo
-    c_left, c_logo, c_right = st.columns([2, 1, 2])
+    # Dynamic Centered Logo (Column sizing adjusted to 4-1-4 to make logo 40% smaller)
+    c_left, c_logo, c_right = st.columns([4, 1, 4])
     with c_logo:
         if os.path.exists("CCK_Logo.png"):
             st.image("CCK_Logo.png", use_container_width=True)
