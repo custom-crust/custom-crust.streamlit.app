@@ -42,6 +42,7 @@ st.markdown("""
         border-radius: 8px; padding: 15px 30px; text-align: center;
         text-decoration: none; color: #f5f5f5; font-weight: 600; letter-spacing: 1px;
         transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; gap: 10px;
+        min-width: 160px;
     }
     .quick-link-card:hover {
         transform: translateY(-4px); border-color: #c5a059; color: #c5a059;
@@ -50,17 +51,17 @@ st.markdown("""
     
     /* The Vault Grid */
     .vault-grid {
-        display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; padding-top: 20px;
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 20px; padding-top: 20px;
     }
     .doc-card {
         background-color: #1a1a1a; border: 1px solid #333; border-radius: 8px;
-        padding: 25px 20px; text-align: center; text-decoration: none; color: #f5f5f5;
+        padding: 30px 20px; text-align: center; text-decoration: none; color: #f5f5f5;
         transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; gap: 15px;
     }
     .doc-card:hover {
-        border-color: #c5a059; transform: translateY(-3px);
+        border-color: #c5a059; transform: translateY(-3px); background-color: #1e1e1e;
     }
-    .doc-card svg {fill: #c5a059; width: 40px; height: 40px;}
+    .doc-card svg {fill: none; stroke: #c5a059; width: 45px; height: 45px; stroke-width: 1.5;}
     .doc-title {font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 1rem; color: #f5f5f5;}
     
     /* Sleek Quoter UI */
@@ -70,8 +71,11 @@ st.markdown("""
     }
     .quote-header {font-family: 'Playfair Display', serif; font-size: 1.8rem; color: #c5a059; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px;}
     .quote-row {display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 1.1rem; color: #e6edf3;}
-    .quote-row.total {font-weight: bold; font-size: 1.4rem; color: #c5a059; border-top: 1px solid #333; padding-top: 15px; margin-top: 15px;}
+    .quote-row.total {font-weight: bold; font-size: 1.5rem; color: #c5a059; border-top: 1px solid #333; padding-top: 15px; margin-top: 15px;}
     .quote-row.profit {color: #238636; font-weight: 600; font-size: 1.2rem;}
+    
+    /* Form Elements */
+    div[data-testid="stForm"] {background-color: #1a1a1a; border: 1px solid #333;}
     
     /* Hide empty dataframe index */
     .stDataFrame {border: 1px solid rgba(197, 160, 89, 0.3) !important; border-radius: 8px !important;}
@@ -79,6 +83,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 3. HARDCODED MASTER DATA ENGINE ---
+# Note: Dough prices are per ball. Other ingredients are per ounce.
 ingredients_data = pd.DataFrame([
     ["10\" Dough Ball", 0.95], ["12\" Dough Ball", 1.25], ["16\" Dough Ball", 1.85],
     ["House Pizza Sauce", 0.04], ["Buffalo Sauce", 0.13], ["Mike's Hot Honey", 0.61],
@@ -86,7 +91,10 @@ ingredients_data = pd.DataFrame([
     ["Premium Sliced Pepperoni", 0.36], ["Fontanini Sausage", 0.37], ["Candied Bacon", 0.25],
     ["Diced Ham", 0.22], ["Fresh Tomatoes", 0.09], ["Green Peppers", 0.05],
     ["Black Olives", 0.06], ["Sliced Garlic", 0.19], ["Drained Pineapple", 0.05]
-], columns=["Ingredient", "Cost Per Oz"])
+], columns=["Ingredient", "Cost"])
+
+# Convert to dictionary for easy lookups in the Pizza Builder
+ing_dict = dict(zip(ingredients_data['Ingredient'], ingredients_data['Cost']))
 
 recipes_data = pd.DataFrame([
     ["The Plain Jane 16\"", "16\" Dough Ball", 1], ["The Plain Jane 16\"", "House Pizza Sauce", 8], ["The Plain Jane 16\"", "Grande Mozzarella", 13],
@@ -105,7 +113,7 @@ menu_prices = {
 def get_recipe_cost(recipe_name):
     df = recipes_data[recipes_data['Recipe'] == recipe_name]
     merged = pd.merge(df, ingredients_data, on="Ingredient", how="left")
-    merged['Line Cost'] = merged['Ounces'] * merged['Cost Per Oz']
+    merged['Line Cost'] = merged['Ounces'] * merged['Cost']
     return merged['Line Cost'].sum()
 
 def load_gsheets():
@@ -152,7 +160,7 @@ def main():
         </div>
     """, unsafe_allow_html=True)
 
-    tabs = st.tabs(["🎫 Event Quoter", "📖 Margin Calc", "⚖️ Dough Prep", "🗄️ The Vault"])
+    tabs = st.tabs(["🎫 Event Quoter", "🍕 Pizza Builder", "📖 Recipe Margins", "🗄️ The Vault"])
 
     # --- TAB 1: EVENT QUOTER ---
     with tabs[0]:
@@ -208,18 +216,79 @@ def main():
                 </div>
             """, unsafe_allow_html=True)
 
-    # --- TAB 2: MARGIN CALCULATOR ---
+    # --- TAB 2: PIZZA BUILDER ---
     with tabs[1]:
+        st.write("##")
+        st.markdown("<p style='color: #b0b0b0; margin-bottom: 30px;'>Select your crust and layer on ingredients by the ounce to engineer your target 80% margin.</p>", unsafe_allow_html=True)
+        
+        c1, c2 = st.columns([1.2, 1], gap="large")
+        
+        with c1:
+            st.markdown("### The Canvas")
+            base = st.selectbox("Crust Base (From Dough Connection)", ["10\" Dough Ball", "12\" Dough Ball", "16\" Dough Ball"])
+            base_cost = ing_dict.get(base, 0.0)
+            
+            st.markdown("### The Sauce")
+            sauce = st.selectbox("Sauce Type", ["None", "House Pizza Sauce", "Buffalo Sauce"])
+            sauce_oz = st.number_input("Sauce Amount (oz)", min_value=0.0, value=8.0, step=0.5) if sauce != "None" else 0
+            
+            st.markdown("### The Cheese")
+            cheeses = st.multiselect("Select Cheeses", ["Grande Mozzarella", "Fresh Mozzarella", "Ricotta Cheese"])
+            cheese_oz = {}
+            for ch in cheeses:
+                cheese_oz[ch] = st.number_input(f"{ch} (oz)", min_value=0.0, value=10.0, step=0.5)
+                
+            st.markdown("### The Toppings")
+            toppings = st.multiselect("Select Meats & Veggies", ["Premium Sliced Pepperoni", "Fontanini Sausage", "Candied Bacon", "Diced Ham", "Fresh Tomatoes", "Green Peppers", "Black Olives", "Sliced Garlic", "Drained Pineapple", "Mike's Hot Honey"])
+            topping_oz = {}
+            for t in toppings:
+                topping_oz[t] = st.number_input(f"{t} (oz)", min_value=0.0, value=3.0, step=0.5)
+                
+        with c2:
+            st.markdown("### Cost Breakdown")
+            total_cost = base_cost
+            breakdown = [{"Ingredient": base, "Ounces": 1, "Line Cost": base_cost}]
+            
+            if sauce != "None" and sauce_oz > 0:
+                sc = sauce_oz * ing_dict.get(sauce, 0)
+                total_cost += sc
+                breakdown.append({"Ingredient": sauce, "Ounces": sauce_oz, "Line Cost": sc})
+                
+            for ch, oz in cheese_oz.items():
+                c = oz * ing_dict.get(ch, 0)
+                total_cost += c
+                breakdown.append({"Ingredient": ch, "Ounces": oz, "Line Cost": c})
+                
+            for t, oz in topping_oz.items():
+                c = oz * ing_dict.get(t, 0)
+                total_cost += c
+                breakdown.append({"Ingredient": t, "Ounces": oz, "Line Cost": c})
+                
+            bd_df = pd.DataFrame(breakdown)
+            if not bd_df.empty:
+                bd_df['Line Cost'] = bd_df['Line Cost'].apply(lambda x: f"${x:.2f}")
+                st.dataframe(bd_df, use_container_width=True, hide_index=True)
+                
+            # Target an 80% margin: Price = Cost / 0.20
+            target_price = total_cost / 0.20 if total_cost > 0 else 0
+            
+            st.markdown(f"""
+            <div class="quote-box" style="margin-top: 20px;">
+                <div class="quote-row"><span>Total Raw Food Cost</span> <span>${total_cost:.2f}</span></div>
+                <div class="quote-row total" style="color: #238636;"><span>Suggested Menu Price (80% Margin)</span> <span>${target_price:.2f}</span></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # --- TAB 3: RECIPE MARGINS ---
+    with tabs[2]:
         st.write("##")
         col_sel, col_blank = st.columns([1, 2])
         with col_sel:
             selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()))
         
         df_recipe = recipes_data[recipes_data['Recipe'] == selected_pie].copy()
-        
-        # Merge to get costs for display
         merged_recipe = pd.merge(df_recipe, ingredients_data, on="Ingredient", how="left")
-        merged_recipe['Line Cost'] = merged_recipe['Ounces'] * merged_recipe['Cost Per Oz']
+        merged_recipe['Line Cost'] = merged_recipe['Ounces'] * merged_recipe['Cost']
         
         cost = merged_recipe['Line Cost'].sum()
         price = menu_prices[selected_pie]
@@ -230,50 +299,9 @@ def main():
         c3.markdown(f"<div class='quote-box' style='text-align:center;'><div style='color:#b0b0b0; font-size: 0.9rem;'>PROFIT MARGIN</div><div style='font-size: 2rem; color: #238636;'>{((price-cost)/price)*100:.1f}%</div></div>", unsafe_allow_html=True)
         
         st.markdown("#### Recipe Breakdown")
-        # Formatting for display
         display_df = merged_recipe[['Ingredient', 'Ounces', 'Line Cost']].copy()
         display_df['Line Cost'] = display_df['Line Cost'].apply(lambda x: f"${x:.2f}")
         st.dataframe(display_df, use_container_width=True, hide_index=True)
-
-    # --- TAB 3: DOUGH PREP CALC ---
-    with tabs[2]:
-        st.write("##")
-        c1, c2 = st.columns(2)
-        qty_12 = c1.number_input("12\" Dough Balls Required (9 oz)", min_value=0, value=0)
-        qty_16 = c2.number_input("16\" Dough Balls Required (16 oz)", min_value=0, value=20)
-        
-        total_ounces = (qty_12 * 9) + (qty_16 * 16)
-        total_grams = total_ounces * 28.3495
-        flour_g = total_grams / 1.63
-        water_g = flour_g * 0.60
-        salt_g = flour_g * 0.025
-        yeast_g = flour_g * 0.005
-        
-        st.markdown("### Master Scale Weights")
-        st.markdown(f"""
-        <div class="vault-grid" style="grid-template-columns: repeat(4, 1fr);">
-            <div class="quote-box" style="text-align: center; padding: 20px;">
-                <div style="font-size: 2rem; margin-bottom: 10px;">🌾</div>
-                <div style="color: #b0b0b0; font-size: 0.9rem;">FLOUR (100%)</div>
-                <div style="font-size: 1.5rem; color: #f5f5f5;">{flour_g:,.0f} g</div>
-            </div>
-            <div class="quote-box" style="text-align: center; padding: 20px;">
-                <div style="font-size: 2rem; margin-bottom: 10px;">💧</div>
-                <div style="color: #b0b0b0; font-size: 0.9rem;">WATER (60%)</div>
-                <div style="font-size: 1.5rem; color: #f5f5f5;">{water_g:,.0f} g</div>
-            </div>
-            <div class="quote-box" style="text-align: center; padding: 20px;">
-                <div style="font-size: 2rem; margin-bottom: 10px;">🧂</div>
-                <div style="color: #b0b0b0; font-size: 0.9rem;">SALT (2.5%)</div>
-                <div style="font-size: 1.5rem; color: #f5f5f5;">{salt_g:,.0f} g</div>
-            </div>
-            <div class="quote-box" style="text-align: center; padding: 20px;">
-                <div style="font-size: 2rem; margin-bottom: 10px;">🦠</div>
-                <div style="color: #b0b0b0; font-size: 0.9rem;">YEAST (0.5%)</div>
-                <div style="font-size: 1.5rem; color: #f5f5f5;">{yeast_g:,.1f} g</div>
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
 
     # --- TAB 4: THE VAULT ---
     with tabs[3]:
@@ -283,12 +311,10 @@ def main():
             for index, row in vault_df.iterrows():
                 name = row.get('document name') or row.get('name') or "Unnamed Doc"
                 link = row.get('link') or row.get('url') or "#"
-                
-                # Ensure link is safe/clickable
                 href = link if str(link).startswith('http') else '#'
                 
-                # SVG Document Icon
-                svg_icon = '''<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                # High-End SVG Document Icon
+                svg_icon = '''<svg viewBox="0 0 24 24">
                                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
                                 <polyline points="14 2 14 8 20 8"></polyline>
                                 <line x1="16" y1="13" x2="8" y2="13"></line>
