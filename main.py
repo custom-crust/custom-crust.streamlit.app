@@ -93,8 +93,8 @@ ingredients_data = pd.DataFrame([
     ["Black Olives", 0.06], ["Sliced Garlic", 0.19], ["Drained Pineapple", 0.05]
 ], columns=["Ingredient", "Cost"])
 
-# Convert to dictionary for easy lookups in the Pizza Builder
-ing_dict = dict(zip(ingredients_data['Ingredient'], ingredients_data['Cost']))
+# Convert to a bulletproof dictionary for the Pizza Builder
+ing_dict = {row['Ingredient'].strip(): float(row['Cost']) for index, row in ingredients_data.iterrows()}
 
 recipes_data = pd.DataFrame([
     ["The Plain Jane 16\"", "16\" Dough Ball", 1], ["The Plain Jane 16\"", "House Pizza Sauce", 8], ["The Plain Jane 16\"", "Grande Mozzarella", 13],
@@ -111,8 +111,14 @@ menu_prices = {
 
 # --- 4. DATA HELPERS ---
 def get_recipe_cost(recipe_name):
-    df = recipes_data[recipes_data['Recipe'] == recipe_name]
-    merged = pd.merge(df, ingredients_data, on="Ingredient", how="left")
+    # Standardize string matching to avoid NaN errors
+    df = recipes_data[recipes_data['Recipe'] == recipe_name].copy()
+    df['match_ing'] = df['Ingredient'].str.strip()
+    ingredients_data['match_ing'] = ingredients_data['Ingredient'].str.strip()
+    
+    merged = pd.merge(df, ingredients_data[['match_ing', 'Cost']], on="match_ing", how="left")
+    # Fill any missing costs with 0.0 to prevent total calculation failure
+    merged['Cost'] = merged['Cost'].fillna(0.0)
     merged['Line Cost'] = merged['Ounces'] * merged['Cost']
     return merged['Line Cost'].sum()
 
@@ -230,37 +236,37 @@ def main():
             
             st.markdown("### The Sauce")
             sauce = st.selectbox("Sauce Type", ["None", "House Pizza Sauce", "Buffalo Sauce"])
-            sauce_oz = st.number_input("Sauce Amount (oz)", min_value=0.0, value=8.0, step=0.5) if sauce != "None" else 0
+            sauce_oz = st.number_input("Sauce Amount (oz)", min_value=0.0, value=8.0, step=0.5) if sauce != "None" else 0.0
             
             st.markdown("### The Cheese")
             cheeses = st.multiselect("Select Cheeses", ["Grande Mozzarella", "Fresh Mozzarella", "Ricotta Cheese"])
             cheese_oz = {}
             for ch in cheeses:
-                cheese_oz[ch] = st.number_input(f"{ch} (oz)", min_value=0.0, value=10.0, step=0.5)
+                cheese_oz[ch] = st.number_input(f"{ch} (oz)", min_value=0.0, value=10.0, step=0.5, key=f"ch_{ch}")
                 
             st.markdown("### The Toppings")
             toppings = st.multiselect("Select Meats & Veggies", ["Premium Sliced Pepperoni", "Fontanini Sausage", "Candied Bacon", "Diced Ham", "Fresh Tomatoes", "Green Peppers", "Black Olives", "Sliced Garlic", "Drained Pineapple", "Mike's Hot Honey"])
             topping_oz = {}
             for t in toppings:
-                topping_oz[t] = st.number_input(f"{t} (oz)", min_value=0.0, value=3.0, step=0.5)
+                topping_oz[t] = st.number_input(f"{t} (oz)", min_value=0.0, value=3.0, step=0.5, key=f"t_{t}")
                 
         with c2:
             st.markdown("### Cost Breakdown")
             total_cost = base_cost
-            breakdown = [{"Ingredient": base, "Ounces": 1, "Line Cost": base_cost}]
+            breakdown = [{"Ingredient": base, "Ounces": 1.0, "Line Cost": base_cost}]
             
             if sauce != "None" and sauce_oz > 0:
-                sc = sauce_oz * ing_dict.get(sauce, 0)
+                sc = sauce_oz * ing_dict.get(sauce, 0.0)
                 total_cost += sc
                 breakdown.append({"Ingredient": sauce, "Ounces": sauce_oz, "Line Cost": sc})
                 
             for ch, oz in cheese_oz.items():
-                c = oz * ing_dict.get(ch, 0)
+                c = oz * ing_dict.get(ch, 0.0)
                 total_cost += c
                 breakdown.append({"Ingredient": ch, "Ounces": oz, "Line Cost": c})
                 
             for t, oz in topping_oz.items():
-                c = oz * ing_dict.get(t, 0)
+                c = oz * ing_dict.get(t, 0.0)
                 total_cost += c
                 breakdown.append({"Ingredient": t, "Ounces": oz, "Line Cost": c})
                 
@@ -270,7 +276,7 @@ def main():
                 st.dataframe(bd_df, use_container_width=True, hide_index=True)
                 
             # Target an 80% margin: Price = Cost / 0.20
-            target_price = total_cost / 0.20 if total_cost > 0 else 0
+            target_price = total_cost / 0.20 if total_cost > 0 else 0.0
             
             st.markdown(f"""
             <div class="quote-box" style="margin-top: 20px;">
@@ -284,10 +290,17 @@ def main():
         st.write("##")
         col_sel, col_blank = st.columns([1, 2])
         with col_sel:
-            selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()))
+            selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()), key="margin_pie")
         
+        # Bulletproof Merge Logic
         df_recipe = recipes_data[recipes_data['Recipe'] == selected_pie].copy()
-        merged_recipe = pd.merge(df_recipe, ingredients_data, on="Ingredient", how="left")
+        df_recipe['match_ing'] = df_recipe['Ingredient'].str.strip()
+        
+        safe_ing_df = ingredients_data.copy()
+        safe_ing_df['match_ing'] = safe_ing_df['Ingredient'].str.strip()
+        
+        merged_recipe = pd.merge(df_recipe, safe_ing_df[['match_ing', 'Cost']], on="match_ing", how="left")
+        merged_recipe['Cost'] = merged_recipe['Cost'].fillna(0.0)
         merged_recipe['Line Cost'] = merged_recipe['Ounces'] * merged_recipe['Cost']
         
         cost = merged_recipe['Line Cost'].sum()
