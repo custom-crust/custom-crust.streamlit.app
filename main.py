@@ -1,62 +1,80 @@
 import streamlit as st
 import pandas as pd
 import math
-from datetime import datetime
 from streamlit_gsheets import GSheetsConnection
-import os
 
 # --- 1. CONFIGURATION ---
 st.set_page_config(page_title="CCK Command Center", layout="wide", page_icon="🍕")
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1yqbd35J140KWT7ui8Ggqn68_OfGXb1wofViJRcSgZBU/edit"
 
-# --- 2. STYLING ---
+# --- 2. LUXURY CSS (Matching the CCK Website) ---
 st.markdown("""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap');
+
     .stApp {
-        background-color: #0E1117;
-        background-image: url("https://www.transparenttextures.com/patterns/cubes.png");
-        background-blend-mode: overlay;
-        background-attachment: fixed;
+        background-color: #121212;
+        font-family: 'Montserrat', sans-serif;
+        color: #f5f5f5;
     }
-    section[data-testid="stSidebar"] {display: none;}
-    .block-container {padding-top: 3rem; padding-bottom: 5rem;}
-    .stTabs [data-baseweb="tab-list"] {justify-content: center; gap: 20px; border-bottom: 1px solid #333;}
-    .stTabs [data-baseweb="tab"] {background-color: transparent; color: #888; font-weight: 600; font-size: 1.1rem;}
-    .stTabs [aria-selected="true"] {color: #c5a059 !important; border-bottom: 2px solid #c5a059 !important;}
-    div.stMetric, div.stDataFrame, div[data-testid="stForm"] {
-        background-color: #161b22; border: 1px solid #30363d;
-        padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-    }
-    div.stButton > button {
-        background-color: #c5a059; color: #121212; border-radius: 6px;
-        font-weight: bold; height: 45px; width: 100%; text-transform: uppercase;
-    }
-    h1, h2, h3, h4, p, label {color: #e6edf3; font-family: 'Segoe UI', sans-serif;}
-    div[data-testid="stMetricValue"] {color: #ffffff !important;}
-    [data-testid="stHeaderAction"] {display: none !important;}
     
-    /* --- CUSTOM COMMAND CENTER CSS --- */
+    /* Hide Streamlit junk */
+    section[data-testid="stSidebar"], [data-testid="stHeaderAction"] {display: none !important;}
+    .block-container {padding-top: 2rem; padding-bottom: 5rem;}
+    
+    /* Typography */
+    h1, h2, h3 {font-family: 'Playfair Display', serif; color: #c5a059;}
+    h4, h5, p, label {font-family: 'Montserrat', sans-serif; color: #e6edf3;}
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] {justify-content: center; gap: 30px; border-bottom: 1px solid rgba(197, 160, 89, 0.2);}
+    .stTabs [data-baseweb="tab"] {background-color: transparent; color: #b0b0b0; font-weight: 600; font-size: 1.1rem;}
+    .stTabs [aria-selected="true"] {color: #c5a059 !important; border-bottom: 2px solid #c5a059 !important;}
+    
+    /* Quick Links Container */
     .quick-links-container {
         display: flex; justify-content: center; align-items: center;
-        gap: 40px; padding-bottom: 25px; border-bottom: 1px solid #333;
-        margin-bottom: 25px; margin-top: -10px; flex-wrap: wrap;
+        gap: 30px; padding-bottom: 30px; border-bottom: 1px solid rgba(197, 160, 89, 0.2);
+        margin-bottom: 30px; margin-top: -10px; flex-wrap: wrap;
     }
     .quick-link-card {
-        background-color: #161b22; border: 1px solid #30363d;
-        border-radius: 10px; padding: 15px 25px; text-align: center;
-        text-decoration: none; color: #e6edf3; font-weight: bold;
-        transition: transform 0.2s, border-color 0.2s;
-        display: flex; flex-direction: column; align-items: center; gap: 10px;
+        background-color: #1a1a1a; border: 1px solid rgba(197, 160, 89, 0.3);
+        border-radius: 8px; padding: 15px 30px; text-align: center;
+        text-decoration: none; color: #f5f5f5; font-weight: 600; letter-spacing: 1px;
+        transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; gap: 10px;
     }
     .quick-link-card:hover {
-        transform: translateY(-5px); border-color: #c5a059; color: #c5a059;
+        transform: translateY(-4px); border-color: #c5a059; color: #c5a059;
+        box-shadow: 0 4px 15px rgba(197, 160, 89, 0.15);
     }
-    .quick-link-icon {width: 45px; height: 45px; object-fit: contain;}
-    .vault-link {
-        font-size: 18px; color: #58a6ff; text-decoration: none;
-        padding: 12px; display: block; border-bottom: 1px solid #30363d;
+    
+    /* The Vault Grid */
+    .vault-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 20px; padding-top: 20px;
     }
-    .vault-link:hover {color: #c5a059; background-color: #1c2128;}
+    .doc-card {
+        background-color: #1a1a1a; border: 1px solid #333; border-radius: 8px;
+        padding: 25px 20px; text-align: center; text-decoration: none; color: #f5f5f5;
+        transition: all 0.3s ease; display: flex; flex-direction: column; align-items: center; gap: 15px;
+    }
+    .doc-card:hover {
+        border-color: #c5a059; transform: translateY(-3px);
+    }
+    .doc-card svg {fill: #c5a059; width: 40px; height: 40px;}
+    .doc-title {font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 1rem; color: #f5f5f5;}
+    
+    /* Sleek Quoter UI */
+    .quote-box {
+        background-color: #1a1a1a; border: 1px solid rgba(197, 160, 89, 0.3);
+        border-radius: 8px; padding: 30px; margin-bottom: 20px;
+    }
+    .quote-header {font-family: 'Playfair Display', serif; font-size: 1.8rem; color: #c5a059; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px;}
+    .quote-row {display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 1.1rem; color: #e6edf3;}
+    .quote-row.total {font-weight: bold; font-size: 1.4rem; color: #c5a059; border-top: 1px solid #333; padding-top: 15px; margin-top: 15px;}
+    .quote-row.profit {color: #238636; font-weight: 600; font-size: 1.2rem;}
+    
+    /* Hide empty dataframe index */
+    .stDataFrame {border: 1px solid rgba(197, 160, 89, 0.3) !important; border-radius: 8px !important;}
     </style>
 """, unsafe_allow_html=True)
 
@@ -90,158 +108,204 @@ def get_recipe_cost(recipe_name):
     merged['Line Cost'] = merged['Ounces'] * merged['Cost Per Oz']
     return merged['Line Cost'].sum()
 
-def get_connection():
-    return st.connection("gsheets", type=GSheetsConnection)
-
 def load_gsheets():
-    conn = get_connection()
     try:
+        conn = st.connection("gsheets", type=GSheetsConnection)
         vault = conn.read(spreadsheet=SHEET_URL, worksheet="Vault_Index", ttl=600)
-    except: vault = pd.DataFrame()
-    return vault
+        return vault
+    except: 
+        return pd.DataFrame()
 
 # --- 5. MAIN APP ---
 def main():
     vault_df = load_gsheets()
 
-    c1, c2, c3 = st.columns([3, 1, 3])
-    with c2:
-        st.markdown("<h1 style='text-align: center; font-size: 50px; color: #c5a059;'>CCK</h1>", unsafe_allow_html=True)
+    # Header
+    st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0;'>CCK</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #b0b0b0; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px;'>Command Center</p>", unsafe_allow_html=True)
 
-    # --- QUICK LINKS COMMAND CENTER ---
-    # The Gemini Marketing link includes a pre-written prompt via URL parameters!
-    gemini_marketing_url = "https://gemini.google.com/?prompt=Act+as+the+Chief+Marketing+Officer+for+Custom+Crust+Kitchen,+a+premium+mobile+artisan+pizza+catering+company.+Write+me+an+engaging+Instagram+caption+about+our+new+menu."
-    
+    # --- QUICK LINKS (Professional SVGs) ---
     st.markdown(f"""
         <div class="quick-links-container">
             <a href="https://www3.usfoods.com/order" target="_blank" class="quick-link-card">
-                <img class="quick-link-icon" src="https://img.icons8.com/color/96/food-truck.png" alt="US Foods">
-                US Foods Portal
+                <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                US Foods
             </a>
-            <a href="{gemini_marketing_url}" target="_blank" class="quick-link-card">
-                <img class="quick-link-icon" src="https://www.gstatic.com/lamda/images/gemini_sparkle_v002_d4735304ff6292a690345.svg" alt="Gemini">
-                CMO Marketing AI
+            <a href="https://gemini.google.com/share/a6e6baf584d1" target="_blank" class="quick-link-card">
+                <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+                </svg>
+                CMO Persona
             </a>
             <a href="https://qbo.intuit.com" target="_blank" class="quick-link-card">
-                <img class="quick-link-icon" src="https://img.icons8.com/color/96/quickbooks.png" alt="QuickBooks">
+                <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                    <line x1="8" y1="21" x2="16" y2="21"></line>
+                    <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
                 QuickBooks
-            </a>
-            <a href="https://www.instagram.com/customcrustkitchen/" target="_blank" class="quick-link-card">
-                <img class="quick-link-icon" src="https://img.icons8.com/fluency/96/instagram-new.png" alt="Instagram">
-                Instagram
             </a>
         </div>
     """, unsafe_allow_html=True)
 
-    tabs = st.tabs(["📋 Event Quoter", "🍕 Recipe Book", "⚖️ Dough Prep Calc", "🗄️ The Vault"])
+    tabs = st.tabs(["🎫 Event Quoter", "📖 Margin Calc", "⚖️ Dough Prep", "🗄️ The Vault"])
 
     # --- TAB 1: EVENT QUOTER ---
     with tabs[0]:
         st.write("##")
-        st.markdown("### 🎫 Automatic Event Quoter")
-        st.markdown("<p style='color: #888;'>Enter the guest count. The app assumes 2.5 slices per adult to calculate the required 16\" pies.</p>", unsafe_allow_html=True)
+        c_in, c_out = st.columns([1, 1.5], gap="large")
         
-        col1, col2 = st.columns(2)
-        guests = col1.number_input("Number of Guests", min_value=1, value=50)
-        event_fee = col2.number_input("Flat Travel/Setup Fee ($)", value=150.0)
-        
-        slices_needed = guests * 2.5
-        pies_needed = math.ceil(slices_needed / 8)
-        
-        st.write("---")
-        st.markdown(f"#### 🍕 Requires: {pies_needed} Large (16\") Pizzas")
-        
-        # Simple distribution: 40% Cheese, 40% Pepperoni, 20% Specialty
-        cheese_pies = math.ceil(pies_needed * 0.40)
-        pep_pies = math.ceil(pies_needed * 0.40)
-        spec_pies = pies_needed - cheese_pies - pep_pies
-        
-        cost_cheese = cheese_pies * get_recipe_cost("The Plain Jane 16\"")
-        cost_pep = pep_pies * get_recipe_cost("The Premium Pepperoni 16\"")
-        cost_spec = spec_pies * get_recipe_cost("The Carnivore 16\"")
-        total_food_cost = cost_cheese + cost_pep + cost_spec
-        
-        retail_cheese = cheese_pies * menu_prices["The Plain Jane 16\""]
-        retail_pep = pep_pies * menu_prices["The Premium Pepperoni 16\""]
-        retail_spec = spec_pies * menu_prices["The Carnivore 16\""]
-        total_retail = retail_cheese + retail_pep + retail_spec + event_fee
-        
-        profit = total_retail - total_food_cost
-        margin = (profit / total_retail) * 100 if total_retail > 0 else 0
+        with c_in:
+            st.markdown("<h3 style='margin-bottom: 20px;'>Event Parameters</h3>", unsafe_allow_html=True)
+            guests = st.number_input("Number of Guests", min_value=1, value=50, step=5)
+            event_fee = st.number_input("Flat Travel/Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
+            
+            # Logic Math
+            slices_needed = guests * 2.5
+            pies_needed = math.ceil(slices_needed / 8)
+            cheese_pies = math.ceil(pies_needed * 0.40)
+            pep_pies = math.ceil(pies_needed * 0.40)
+            spec_pies = pies_needed - cheese_pies - pep_pies
+            
+            cost_cheese = cheese_pies * get_recipe_cost("The Plain Jane 16\"")
+            cost_pep = pep_pies * get_recipe_cost("The Premium Pepperoni 16\"")
+            cost_spec = spec_pies * get_recipe_cost("The Carnivore 16\"")
+            total_food_cost = cost_cheese + cost_pep + cost_spec
+            
+            retail_cheese = cheese_pies * menu_prices["The Plain Jane 16\""]
+            retail_pep = pep_pies * menu_prices["The Premium Pepperoni 16\""]
+            retail_spec = spec_pies * menu_prices["The Carnivore 16\""]
+            subtotal = retail_cheese + retail_pep + retail_spec
+            total_retail = subtotal + event_fee
+            
+            profit = total_retail - total_food_cost
+            margin = (profit / total_retail) * 100 if total_retail > 0 else 0
 
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Recommended Cheese", f"{cheese_pies} Pies")
-        m2.metric("Recommended Pepperoni", f"{pep_pies} Pies")
-        m3.metric("Recommended Specialty", f"{spec_pies} Pies")
-        m4.metric("Raw Food Cost", f"${total_food_cost:,.2f}")
-        
-        st.markdown(f"""
-        <div style="text-align: center; padding: 20px; background-color: #1a1a1a; border-radius: 10px; border: 1px solid #c5a059; margin-top: 20px;">
-            <h3 style="margin:0; color: #8b949e;">Suggested Quote to Client</h3>
-            <div style="margin:0; font-size: 3rem; font-weight: bold; color: #c5a059;">${total_retail:,.2f}</div>
-            <p style="color: #238636; font-weight: bold;">Estimated Profit: ${profit:,.2f} ({margin:.1f}% Margin)</p>
-        </div>
-        """, unsafe_allow_html=True)
+        with c_out:
+            st.markdown(f"""
+                <div class="quote-box">
+                    <div class="quote-header">Catering Proposal</div>
+                    
+                    <div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">LOGISTICS (BASED ON {guests} GUESTS)</div>
+                    <div class="quote-row"><span>Total 16" Pizzas Required</span> <span>{pies_needed}</span></div>
+                    <div class="quote-row"><span>├─ The Plain Jane (Cheese)</span> <span>{cheese_pies}</span></div>
+                    <div class="quote-row"><span>├─ The Premium Pepperoni</span> <span>{pep_pies}</span></div>
+                    <div class="quote-row"><span>└─ Specialty (e.g. Carnivore)</span> <span>{spec_pies}</span></div>
+                    
+                    <div style="color: #b0b0b0; margin-top: 25px; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">FINANCIALS</div>
+                    <div class="quote-row"><span>Pizza Subtotal</span> <span>${subtotal:,.2f}</span></div>
+                    <div class="quote-row"><span>Setup / Travel Fee</span> <span>${event_fee:,.2f}</span></div>
+                    <div class="quote-row total"><span>Recommended Client Quote</span> <span>${total_retail:,.2f}</span></div>
+                    
+                    <div style="margin-top: 20px; padding: 15px; background-color: #121212; border-radius: 6px; border-left: 4px solid #c5a059;">
+                        <div class="quote-row" style="margin-bottom: 5px;"><span>Internal Raw Food Cost</span> <span>${total_food_cost:,.2f}</span></div>
+                        <div class="quote-row profit" style="margin-bottom: 0;"><span>Projected Net Profit</span> <span>${profit:,.2f} ({margin:.1f}%)</span></div>
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
 
-    # --- TAB 2: RECIPE BOOK ---
+    # --- TAB 2: MARGIN CALCULATOR ---
     with tabs[1]:
         st.write("##")
-        st.markdown("### 📖 Standardized Build Sheets")
-        selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()))
+        col_sel, col_blank = st.columns([1, 2])
+        with col_sel:
+            selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()))
         
-        df_recipe = recipes_data[recipes_data['Recipe'] == selected_pie]
-        cost = get_recipe_cost(selected_pie)
+        df_recipe = recipes_data[recipes_data['Recipe'] == selected_pie].copy()
+        
+        # Merge to get costs for display
+        merged_recipe = pd.merge(df_recipe, ingredients_data, on="Ingredient", how="left")
+        merged_recipe['Line Cost'] = merged_recipe['Ounces'] * merged_recipe['Cost Per Oz']
+        
+        cost = merged_recipe['Line Cost'].sum()
         price = menu_prices[selected_pie]
         
         c1, c2, c3 = st.columns(3)
-        c1.metric("Retail Price", f"${price:,.2f}")
-        c2.metric("Food Cost", f"${cost:,.2f}")
-        c3.metric("Margin", f"{((price-cost)/price)*100:.1f}%")
+        c1.markdown(f"<div class='quote-box' style='text-align:center;'><div style='color:#b0b0b0; font-size: 0.9rem;'>RETAIL PRICE</div><div style='font-size: 2rem; color: #f5f5f5;'>${price:,.2f}</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='quote-box' style='text-align:center;'><div style='color:#b0b0b0; font-size: 0.9rem;'>FOOD COST</div><div style='font-size: 2rem; color: #da3633;'>${cost:,.2f}</div></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='quote-box' style='text-align:center;'><div style='color:#b0b0b0; font-size: 0.9rem;'>PROFIT MARGIN</div><div style='font-size: 2rem; color: #238636;'>{((price-cost)/price)*100:.1f}%</div></div>", unsafe_allow_html=True)
         
-        st.dataframe(df_recipe[['Ingredient', 'Ounces']], use_container_width=True, hide_index=True)
+        st.markdown("#### Recipe Breakdown")
+        # Formatting for display
+        display_df = merged_recipe[['Ingredient', 'Ounces', 'Line Cost']].copy()
+        display_df['Line Cost'] = display_df['Line Cost'].apply(lambda x: f"${x:.2f}")
+        st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     # --- TAB 3: DOUGH PREP CALC ---
     with tabs[2]:
         st.write("##")
-        st.markdown("### ⚖️ Master Dough Batch Calculator")
-        st.markdown("<p style='color: #888;'>Based on 60% Hydration, 2.5% Salt, 0.5% Yeast.</p>", unsafe_allow_html=True)
-        
         c1, c2 = st.columns(2)
-        qty_12 = c1.number_input("How many 12\" Dough Balls? (9 oz each)", min_value=0, value=0)
-        qty_16 = c2.number_input("How many 16\" Dough Balls? (16 oz each)", min_value=0, value=20)
+        qty_12 = c1.number_input("12\" Dough Balls Required (9 oz)", min_value=0, value=0)
+        qty_16 = c2.number_input("16\" Dough Balls Required (16 oz)", min_value=0, value=20)
         
         total_ounces = (qty_12 * 9) + (qty_16 * 16)
-        total_grams = total_ounces * 28.3495 # Convert oz to grams
-        
-        # Baker's Math (Total % = 100 + 60 + 2.5 + 0.5 = 163%)
+        total_grams = total_ounces * 28.3495
         flour_g = total_grams / 1.63
         water_g = flour_g * 0.60
         salt_g = flour_g * 0.025
         yeast_g = flour_g * 0.005
         
-        st.write("---")
-        st.markdown("#### 🥣 Scale Weights (Grams)")
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("🌾 Flour (100%)", f"{flour_g:,.0f} g")
-        m2.metric("💧 Water (60%)", f"{water_g:,.0f} g")
-        m3.metric("🧂 Salt (2.5%)", f"{salt_g:,.0f} g")
-        m4.metric("🦠 Yeast (0.5%)", f"{yeast_g:,.1f} g")
+        st.markdown("### Master Scale Weights")
+        st.markdown(f"""
+        <div class="vault-grid" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="quote-box" style="text-align: center; padding: 20px;">
+                <div style="font-size: 2rem; margin-bottom: 10px;">🌾</div>
+                <div style="color: #b0b0b0; font-size: 0.9rem;">FLOUR (100%)</div>
+                <div style="font-size: 1.5rem; color: #f5f5f5;">{flour_g:,.0f} g</div>
+            </div>
+            <div class="quote-box" style="text-align: center; padding: 20px;">
+                <div style="font-size: 2rem; margin-bottom: 10px;">💧</div>
+                <div style="color: #b0b0b0; font-size: 0.9rem;">WATER (60%)</div>
+                <div style="font-size: 1.5rem; color: #f5f5f5;">{water_g:,.0f} g</div>
+            </div>
+            <div class="quote-box" style="text-align: center; padding: 20px;">
+                <div style="font-size: 2rem; margin-bottom: 10px;">🧂</div>
+                <div style="color: #b0b0b0; font-size: 0.9rem;">SALT (2.5%)</div>
+                <div style="font-size: 1.5rem; color: #f5f5f5;">{salt_g:,.0f} g</div>
+            </div>
+            <div class="quote-box" style="text-align: center; padding: 20px;">
+                <div style="font-size: 2rem; margin-bottom: 10px;">🦠</div>
+                <div style="color: #b0b0b0; font-size: 0.9rem;">YEAST (0.5%)</div>
+                <div style="font-size: 1.5rem; color: #f5f5f5;">{yeast_g:,.1f} g</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     # --- TAB 4: THE VAULT ---
     with tabs[3]:
         st.write("##")
-        st.markdown("### 🗄️ Document Vault")
-        st.markdown("<p style='color: #888;'>Important business documents synced from your Google Sheet.</p>", unsafe_allow_html=True)
         if not vault_df.empty:
+            vault_html = '<div class="vault-grid">'
             for index, row in vault_df.iterrows():
                 name = row.get('document name') or row.get('name') or "Unnamed Doc"
                 link = row.get('link') or row.get('url') or "#"
-                if link and str(link).startswith('http'):
-                    st.markdown(f'<a href="{link}" target="_blank" class="vault-link">📄 {name}</a>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="vault-link">📄 {name} (No Link)</div>', unsafe_allow_html=True)
+                
+                # Ensure link is safe/clickable
+                href = link if str(link).startswith('http') else '#'
+                
+                # SVG Document Icon
+                svg_icon = '''<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                                <polyline points="14 2 14 8 20 8"></polyline>
+                                <line x1="16" y1="13" x2="8" y2="13"></line>
+                                <line x1="16" y1="17" x2="8" y2="17"></line>
+                                <polyline points="10 9 9 9 8 9"></polyline>
+                              </svg>'''
+                
+                vault_html += f'''
+                    <a href="{href}" target="_blank" class="doc-card">
+                        {svg_icon}
+                        <div class="doc-title">{name}</div>
+                    </a>
+                '''
+            vault_html += '</div>'
+            st.markdown(vault_html, unsafe_allow_html=True)
         else:
-            st.info("Vault is currently empty. Add links to your Google Sheet 'Vault_Index' tab.")
+            st.info("Vault is empty or Google Sheets connection failed. Add links to your 'Vault_Index' tab.")
 
 if __name__ == "__main__":
     main()
