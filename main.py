@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import math
+import os
 from streamlit_gsheets import GSheetsConnection
 
 # --- 1. CONFIGURATION ---
@@ -97,19 +98,15 @@ ingredients_data = pd.DataFrame([
 ing_dict = {row['Ingredient'].strip(): float(row['Cost']) for index, row in ingredients_data.iterrows()}
 
 recipes_data = pd.DataFrame([
-    # Signature Pies
     ["The Plain Jane 16\"", "16\" Dough Ball", 1], ["The Plain Jane 16\"", "House Pizza Sauce", 8], ["The Plain Jane 16\"", "Grande Mozzarella", 13],
     ["The Premium Pepperoni 16\"", "16\" Dough Ball", 1], ["The Premium Pepperoni 16\"", "House Pizza Sauce", 8], ["The Premium Pepperoni 16\"", "Grande Mozzarella", 12], ["The Premium Pepperoni 16\"", "Premium Sliced Pepperoni", 4.5],
     ["The Carnivore 16\"", "16\" Dough Ball", 1], ["The Carnivore 16\"", "House Pizza Sauce", 7], ["The Carnivore 16\"", "Grande Mozzarella", 10], ["The Carnivore 16\"", "Premium Sliced Pepperoni", 3], ["The Carnivore 16\"", "Fontanini Sausage", 4], ["The Carnivore 16\"", "Candied Bacon", 3], ["The Carnivore 16\"", "Mike's Hot Honey", 1],
     ["The Bianco Veggie 16\"", "16\" Dough Ball", 1], ["The Bianco Veggie 16\"", "Sliced Garlic", 1], ["The Bianco Veggie 16\"", "Grande Mozzarella", 8], ["The Bianco Veggie 16\"", "Ricotta Cheese", 5], ["The Bianco Veggie 16\"", "Green Peppers", 4], ["The Bianco Veggie 16\"", "Black Olives", 3],
     ["The Buffalo Soldier 16\"", "16\" Dough Ball", 1], ["The Buffalo Soldier 16\"", "Buffalo Sauce", 5], ["The Buffalo Soldier 16\"", "Grande Mozzarella", 9], ["The Buffalo Soldier 16\"", "Diced Chicken", 7], ["The Buffalo Soldier 16\"", "Blue Cheese Crumbles", 2],
-    
-    # Custom Proxy Recipes (For accurate margin forecasting)
     ["Custom 16\" (Standard Toppings)", "16\" Dough Ball", 1], ["Custom 16\" (Standard Toppings)", "House Pizza Sauce", 8], ["Custom 16\" (Standard Toppings)", "Grande Mozzarella", 12], ["Custom 16\" (Standard Toppings)", "Green Peppers", 3], ["Custom 16\" (Standard Toppings)", "Onion", 3],
     ["Custom 16\" (Premium Toppings)", "16\" Dough Ball", 1], ["Custom 16\" (Premium Toppings)", "House Pizza Sauce", 8], ["Custom 16\" (Premium Toppings)", "Grande Mozzarella", 12], ["Custom 16\" (Premium Toppings)", "Premium Sliced Pepperoni", 3], ["Custom 16\" (Premium Toppings)", "Ricotta Cheese", 3]
 ], columns=["Recipe", "Ingredient", "Ounces"])
 
-# Updated Menu for Event Quoting (No Calzones)
 menu_prices = {
     "The Plain Jane 16\"": 19.00, 
     "The Premium Pepperoni 16\"": 23.00, 
@@ -143,7 +140,16 @@ def load_gsheets():
 def main():
     vault_df = load_gsheets()
 
-    st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0;'>CCK</h1>", unsafe_allow_html=True)
+    # Dynamic Centered Logo
+    c_left, c_logo, c_right = st.columns([2, 1, 2])
+    with c_logo:
+        if os.path.exists("CCK_Logo.png"):
+            st.image("CCK_Logo.png", use_container_width=True)
+        elif os.path.exists("logo.png"):
+            st.image("logo.png", use_container_width=True)
+        else:
+            st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0;'>CCK</h1>", unsafe_allow_html=True)
+            
     st.markdown("<p style='text-align: center; color: #b0b0b0; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px;'>Command Center</p>", unsafe_allow_html=True)
 
     quick_links_html = """<div class="quick-links-container">
@@ -185,7 +191,6 @@ QuickBooks
             guests = c_g.number_input("Est. Guests (For reference)", min_value=1, value=50, step=5)
             event_fee = c_f.number_input("Flat Travel/Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
             
-            # Helper logic
             pies_needed = math.ceil((guests * 2.5) / 8)
             st.info(f"💡 **Rule of Thumb:** For {guests} guests, you will need about **{pies_needed} large pies**.")
             
@@ -226,7 +231,6 @@ QuickBooks
             
             final_quote = subtotal_with_tax + cc_fee_amount
             
-            # Profit Calculation: Net Revenue (pre-tax/fee) minus Food Cost
             net_revenue = pizza_subtotal + event_fee
             profit = net_revenue - total_food_cost
             margin = (profit / net_revenue) * 100 if net_revenue > 0 else 0.0
