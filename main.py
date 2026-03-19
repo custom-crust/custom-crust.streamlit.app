@@ -87,27 +87,37 @@ ingredients_data = pd.DataFrame([
     ["10\" Dough Ball", 0.95], ["12\" Dough Ball", 1.25], ["16\" Dough Ball", 1.85],
     ["House Pizza Sauce", 0.04], ["Buffalo Sauce", 0.13], ["Mike's Hot Honey", 0.61],
     ["Grande Mozzarella", 0.23], ["Fresh Mozzarella", 0.38], ["Ricotta Cheese", 0.28],
+    ["Blue Cheese Crumbles", 0.25],
     ["Premium Sliced Pepperoni", 0.36], ["Fontanini Sausage", 0.37], ["Candied Bacon", 0.25],
-    ["Diced Ham", 0.22], ["Fresh Tomatoes", 0.09], ["Green Peppers", 0.05],
+    ["Diced Ham", 0.22], ["Diced Chicken", 0.28], 
+    ["Fresh Tomatoes", 0.09], ["Green Peppers", 0.05], ["Onion", 0.02],
     ["Black Olives", 0.06], ["Sliced Garlic", 0.19], ["Drained Pineapple", 0.05]
 ], columns=["Ingredient", "Cost"])
 
 ing_dict = {row['Ingredient'].strip(): float(row['Cost']) for index, row in ingredients_data.iterrows()}
 
 recipes_data = pd.DataFrame([
+    # Signature Pies
     ["The Plain Jane 16\"", "16\" Dough Ball", 1], ["The Plain Jane 16\"", "House Pizza Sauce", 8], ["The Plain Jane 16\"", "Grande Mozzarella", 13],
     ["The Premium Pepperoni 16\"", "16\" Dough Ball", 1], ["The Premium Pepperoni 16\"", "House Pizza Sauce", 8], ["The Premium Pepperoni 16\"", "Grande Mozzarella", 12], ["The Premium Pepperoni 16\"", "Premium Sliced Pepperoni", 4.5],
     ["The Carnivore 16\"", "16\" Dough Ball", 1], ["The Carnivore 16\"", "House Pizza Sauce", 7], ["The Carnivore 16\"", "Grande Mozzarella", 10], ["The Carnivore 16\"", "Premium Sliced Pepperoni", 3], ["The Carnivore 16\"", "Fontanini Sausage", 4], ["The Carnivore 16\"", "Candied Bacon", 3], ["The Carnivore 16\"", "Mike's Hot Honey", 1],
     ["The Bianco Veggie 16\"", "16\" Dough Ball", 1], ["The Bianco Veggie 16\"", "Sliced Garlic", 1], ["The Bianco Veggie 16\"", "Grande Mozzarella", 8], ["The Bianco Veggie 16\"", "Ricotta Cheese", 5], ["The Bianco Veggie 16\"", "Green Peppers", 4], ["The Bianco Veggie 16\"", "Black Olives", 3],
-    ["Large Calzone", "16\" Dough Ball", 1], ["Large Calzone", "Grande Mozzarella", 10], ["Large Calzone", "Ricotta Cheese", 7]
+    ["The Buffalo Soldier 16\"", "16\" Dough Ball", 1], ["The Buffalo Soldier 16\"", "Buffalo Sauce", 5], ["The Buffalo Soldier 16\"", "Grande Mozzarella", 9], ["The Buffalo Soldier 16\"", "Diced Chicken", 7], ["The Buffalo Soldier 16\"", "Blue Cheese Crumbles", 2],
+    
+    # Custom Proxy Recipes (For accurate margin forecasting)
+    ["Custom 16\" (Standard Toppings)", "16\" Dough Ball", 1], ["Custom 16\" (Standard Toppings)", "House Pizza Sauce", 8], ["Custom 16\" (Standard Toppings)", "Grande Mozzarella", 12], ["Custom 16\" (Standard Toppings)", "Green Peppers", 3], ["Custom 16\" (Standard Toppings)", "Onion", 3],
+    ["Custom 16\" (Premium Toppings)", "16\" Dough Ball", 1], ["Custom 16\" (Premium Toppings)", "House Pizza Sauce", 8], ["Custom 16\" (Premium Toppings)", "Grande Mozzarella", 12], ["Custom 16\" (Premium Toppings)", "Premium Sliced Pepperoni", 3], ["Custom 16\" (Premium Toppings)", "Ricotta Cheese", 3]
 ], columns=["Recipe", "Ingredient", "Ounces"])
 
+# Updated Menu for Event Quoting (No Calzones)
 menu_prices = {
     "The Plain Jane 16\"": 19.00, 
     "The Premium Pepperoni 16\"": 23.00, 
     "The Carnivore 16\"": 28.00, 
     "The Bianco Veggie 16\"": 28.00, 
-    "Large Calzone": 22.00
+    "The Buffalo Soldier 16\"": 28.00,
+    "Custom 16\" (Standard Toppings)": 24.00,
+    "Custom 16\" (Premium Toppings)": 28.00
 }
 
 # --- 4. DATA HELPERS ---
@@ -145,7 +155,7 @@ def main():
 </svg>
 US Foods
 </a>
-<a href="https://gemini.google.com/share/a6e6baf584d1" target="_blank" class="quick-link-card">
+<a href="https://gemini.google.com/app/7e448fe20a7cd3a5" target="_blank" class="quick-link-card">
 <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
 </svg>
@@ -186,7 +196,7 @@ QuickBooks
                 
             st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>3. Taxes & Fees</h3>", unsafe_allow_html=True)
             c_t, c_c = st.columns(2)
-            apply_tax = c_t.checkbox("Add MA Meals Tax (6.25%)", value=True)
+            apply_tax = c_t.checkbox("Add MA Meals Tax (7.0%)", value=True)
             apply_cc = c_c.checkbox("Add CC Fee (2.29%)", value=False)
 
         with c_out:
@@ -209,7 +219,7 @@ QuickBooks
                 order_lines = '<div class="quote-row"><span style="color: #666; font-style: italic;">No items added to order yet.</span> <span>$0.00</span></div>\n'
                 
             taxable_amount = pizza_subtotal + event_fee
-            tax_amount = (taxable_amount * 0.0625) if apply_tax else 0.0
+            tax_amount = (taxable_amount * 0.07) if apply_tax else 0.0
             
             subtotal_with_tax = taxable_amount + tax_amount
             cc_fee_amount = (subtotal_with_tax * 0.0229) if apply_cc else 0.0
@@ -230,7 +240,7 @@ QuickBooks
 <div class="quote-row"><span>Setup / Travel Fee</span> <span>${event_fee:,.2f}</span></div>"""
 
             if apply_tax:
-                quote_html += f'\n<div class="quote-row"><span>MA Meals Tax (6.25%)</span> <span>${tax_amount:,.2f}</span></div>'
+                quote_html += f'\n<div class="quote-row"><span>MA Meals Tax (7.0%)</span> <span>${tax_amount:,.2f}</span></div>'
             if apply_cc:
                 quote_html += f'\n<div class="quote-row"><span>Credit Card Fee (2.29%)</span> <span>${cc_fee_amount:,.2f}</span></div>'
 
@@ -259,13 +269,13 @@ QuickBooks
             sauce_oz = st.number_input("Sauce Amount (oz)", min_value=0.0, value=8.0, step=0.5) if sauce != "None" else 0.0
             
             st.markdown("### The Cheese")
-            cheeses = st.multiselect("Select Cheeses", ["Grande Mozzarella", "Fresh Mozzarella", "Ricotta Cheese"])
+            cheeses = st.multiselect("Select Cheeses", ["Grande Mozzarella", "Fresh Mozzarella", "Ricotta Cheese", "Blue Cheese Crumbles"])
             cheese_oz = {}
             for ch in cheeses:
                 cheese_oz[ch] = st.number_input(f"{ch} (oz)", min_value=0.0, value=10.0, step=0.5, key=f"ch_{ch}")
                 
             st.markdown("### The Toppings")
-            toppings = st.multiselect("Select Meats & Veggies", ["Premium Sliced Pepperoni", "Fontanini Sausage", "Candied Bacon", "Diced Ham", "Fresh Tomatoes", "Green Peppers", "Black Olives", "Sliced Garlic", "Drained Pineapple", "Mike's Hot Honey"])
+            toppings = st.multiselect("Select Meats & Veggies", ["Premium Sliced Pepperoni", "Fontanini Sausage", "Candied Bacon", "Diced Ham", "Diced Chicken", "Fresh Tomatoes", "Green Peppers", "Onion", "Black Olives", "Sliced Garlic", "Drained Pineapple", "Mike's Hot Honey"])
             topping_oz = {}
             for t in toppings:
                 topping_oz[t] = st.number_input(f"{t} (oz)", min_value=0.0, value=3.0, step=0.5, key=f"t_{t}")
