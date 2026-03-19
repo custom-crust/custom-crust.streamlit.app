@@ -4,9 +4,12 @@ import math
 import os
 from streamlit_gsheets import GSheetsConnection
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIGURATION & SECURITY ---
 st.set_page_config(page_title="CCK Command Center", layout="wide", page_icon="🍕")
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1yqbd35J140KWT7ui8Ggqn68_OfGXb1wofViJRcSgZBU/edit"
+
+# *** YOUR MASTER PIN CODE ***
+ACCESS_PIN = "CCK2026!"
 
 # --- 2. LUXURY CSS (Matching the CCK Website) ---
 st.markdown("""
@@ -65,11 +68,12 @@ st.markdown("""
     .doc-card svg {fill: none; stroke: #c5a059; width: 45px; height: 45px; stroke-width: 1.5;}
     .doc-title {font-family: 'Montserrat', sans-serif; font-weight: 600; font-size: 1rem; color: #f5f5f5;}
     
-    /* Sleek Quoter UI */
-    .quote-box {
+    /* Sleek Quoter UI & Login */
+    .quote-box, .login-box {
         background-color: #1a1a1a; border: 1px solid rgba(197, 160, 89, 0.3);
         border-radius: 8px; padding: 30px; margin-bottom: 20px;
     }
+    .login-box {max-width: 400px; margin: 100px auto; text-align: center;}
     .quote-header {font-family: 'Playfair Display', serif; font-size: 1.8rem; color: #c5a059; border-bottom: 1px solid #333; padding-bottom: 10px; margin-bottom: 20px;}
     .quote-row {display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 1.1rem; color: #e6edf3;}
     .quote-row.total {font-weight: bold; font-size: 1.5rem; color: #c5a059; border-top: 1px solid #333; padding-top: 15px; margin-top: 15px;}
@@ -82,6 +86,30 @@ st.markdown("""
     .stDataFrame {border: 1px solid rgba(197, 160, 89, 0.3) !important; border-radius: 8px !important;}
     </style>
 """, unsafe_allow_html=True)
+
+# --- SECURITY GATE ---
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated:
+    st.markdown("""
+        <div class="login-box">
+            <h2 style="margin-bottom: 10px;">Restricted Access</h2>
+            <p style="color: #b0b0b0; font-size: 0.9rem; margin-bottom: 30px;">Custom Crust Kitchen Internal Portal</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 1, 1])
+    with col2:
+        pin_input = st.text_input("Enter PIN", type="password", placeholder="••••••••")
+        if st.button("Unlock Command Center", use_container_width=True):
+            if pin_input == ACCESS_PIN:
+                st.session_state.authenticated = True
+                st.rerun()
+            else:
+                st.error("Invalid PIN. Access Denied.")
+    st.stop() # Stops the rest of the app from loading if not authenticated
+
 
 # --- 3. HARDCODED MASTER DATA ENGINE ---
 ingredients_data = pd.DataFrame([
