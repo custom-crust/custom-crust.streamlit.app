@@ -83,7 +83,6 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # --- 3. HARDCODED MASTER DATA ENGINE ---
-# Note: Dough prices are per ball. Other ingredients are per ounce.
 ingredients_data = pd.DataFrame([
     ["10\" Dough Ball", 0.95], ["12\" Dough Ball", 1.25], ["16\" Dough Ball", 1.85],
     ["House Pizza Sauce", 0.04], ["Buffalo Sauce", 0.13], ["Mike's Hot Honey", 0.61],
@@ -93,7 +92,6 @@ ingredients_data = pd.DataFrame([
     ["Black Olives", 0.06], ["Sliced Garlic", 0.19], ["Drained Pineapple", 0.05]
 ], columns=["Ingredient", "Cost"])
 
-# Convert to a bulletproof dictionary for the Pizza Builder
 ing_dict = {row['Ingredient'].strip(): float(row['Cost']) for index, row in ingredients_data.iterrows()}
 
 recipes_data = pd.DataFrame([
@@ -111,13 +109,11 @@ menu_prices = {
 
 # --- 4. DATA HELPERS ---
 def get_recipe_cost(recipe_name):
-    # Standardize string matching to avoid NaN errors
     df = recipes_data[recipes_data['Recipe'] == recipe_name].copy()
     df['match_ing'] = df['Ingredient'].str.strip()
-    ingredients_data['match_ing'] = ingredients_data['Ingredient'].str.strip()
-    
-    merged = pd.merge(df, ingredients_data[['match_ing', 'Cost']], on="match_ing", how="left")
-    # Fill any missing costs with 0.0 to prevent total calculation failure
+    safe_ing_df = ingredients_data.copy()
+    safe_ing_df['match_ing'] = safe_ing_df['Ingredient'].str.strip()
+    merged = pd.merge(df, safe_ing_df[['match_ing', 'Cost']], on="match_ing", how="left")
     merged['Cost'] = merged['Cost'].fillna(0.0)
     merged['Line Cost'] = merged['Ounces'] * merged['Cost']
     return merged['Line Cost'].sum()
@@ -134,37 +130,35 @@ def load_gsheets():
 def main():
     vault_df = load_gsheets()
 
-    # Header
     st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0;'>CCK</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #b0b0b0; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px;'>Command Center</p>", unsafe_allow_html=True)
 
-    # --- QUICK LINKS (Professional SVGs) ---
-    st.markdown(f"""
-        <div class="quick-links-container">
-            <a href="https://www3.usfoods.com/order" target="_blank" class="quick-link-card">
-                <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-                    <line x1="12" y1="22.08" x2="12" y2="12"></line>
-                </svg>
-                US Foods
-            </a>
-            <a href="https://gemini.google.com/share/a6e6baf584d1" target="_blank" class="quick-link-card">
-                <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-                </svg>
-                CMO Persona
-            </a>
-            <a href="https://qbo.intuit.com" target="_blank" class="quick-link-card">
-                <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-                    <line x1="8" y1="21" x2="16" y2="21"></line>
-                    <line x1="12" y1="17" x2="12" y2="21"></line>
-                </svg>
-                QuickBooks
-            </a>
-        </div>
-    """, unsafe_allow_html=True)
+    # Note: Flush left HTML block to prevent Markdown from treating it as raw code
+    quick_links_html = """<div class="quick-links-container">
+<a href="https://www3.usfoods.com/order" target="_blank" class="quick-link-card">
+<svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+<line x1="12" y1="22.08" x2="12" y2="12"></line>
+</svg>
+US Foods
+</a>
+<a href="https://gemini.google.com/share/a6e6baf584d1" target="_blank" class="quick-link-card">
+<svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+</svg>
+CMO Persona
+</a>
+<a href="https://qbo.intuit.com" target="_blank" class="quick-link-card">
+<svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+<rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+<line x1="8" y1="21" x2="16" y2="21"></line>
+<line x1="12" y1="17" x2="12" y2="21"></line>
+</svg>
+QuickBooks
+</a>
+</div>"""
+    st.markdown(quick_links_html, unsafe_allow_html=True)
 
     tabs = st.tabs(["🎫 Event Quoter", "🍕 Pizza Builder", "📖 Recipe Margins", "🗄️ The Vault"])
 
@@ -178,7 +172,6 @@ def main():
             guests = st.number_input("Number of Guests", min_value=1, value=50, step=5)
             event_fee = st.number_input("Flat Travel/Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
             
-            # Logic Math
             slices_needed = guests * 2.5
             pies_needed = math.ceil(slices_needed / 8)
             cheese_pies = math.ceil(pies_needed * 0.40)
@@ -200,27 +193,24 @@ def main():
             margin = (profit / total_retail) * 100 if total_retail > 0 else 0
 
         with c_out:
-            st.markdown(f"""
-                <div class="quote-box">
-                    <div class="quote-header">Catering Proposal</div>
-                    
-                    <div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">LOGISTICS (BASED ON {guests} GUESTS)</div>
-                    <div class="quote-row"><span>Total 16" Pizzas Required</span> <span>{pies_needed}</span></div>
-                    <div class="quote-row"><span>├─ The Plain Jane (Cheese)</span> <span>{cheese_pies}</span></div>
-                    <div class="quote-row"><span>├─ The Premium Pepperoni</span> <span>{pep_pies}</span></div>
-                    <div class="quote-row"><span>└─ Specialty (e.g. Carnivore)</span> <span>{spec_pies}</span></div>
-                    
-                    <div style="color: #b0b0b0; margin-top: 25px; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">FINANCIALS</div>
-                    <div class="quote-row"><span>Pizza Subtotal</span> <span>${subtotal:,.2f}</span></div>
-                    <div class="quote-row"><span>Setup / Travel Fee</span> <span>${event_fee:,.2f}</span></div>
-                    <div class="quote-row total"><span>Recommended Client Quote</span> <span>${total_retail:,.2f}</span></div>
-                    
-                    <div style="margin-top: 20px; padding: 15px; background-color: #121212; border-radius: 6px; border-left: 4px solid #c5a059;">
-                        <div class="quote-row" style="margin-bottom: 5px;"><span>Internal Raw Food Cost</span> <span>${total_food_cost:,.2f}</span></div>
-                        <div class="quote-row profit" style="margin-bottom: 0;"><span>Projected Net Profit</span> <span>${profit:,.2f} ({margin:.1f}%)</span></div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+            # Note: Flush left HTML block
+            quote_html = f"""<div class="quote-box">
+<div class="quote-header">Catering Proposal</div>
+<div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">LOGISTICS (BASED ON {guests} GUESTS)</div>
+<div class="quote-row"><span>Total 16" Pizzas Required</span> <span>{pies_needed}</span></div>
+<div class="quote-row"><span>├─ The Plain Jane (Cheese)</span> <span>{cheese_pies}</span></div>
+<div class="quote-row"><span>├─ The Premium Pepperoni</span> <span>{pep_pies}</span></div>
+<div class="quote-row"><span>└─ Specialty (e.g. Carnivore)</span> <span>{spec_pies}</span></div>
+<div style="color: #b0b0b0; margin-top: 25px; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">FINANCIALS</div>
+<div class="quote-row"><span>Pizza Subtotal</span> <span>${subtotal:,.2f}</span></div>
+<div class="quote-row"><span>Setup / Travel Fee</span> <span>${event_fee:,.2f}</span></div>
+<div class="quote-row total"><span>Recommended Client Quote</span> <span>${total_retail:,.2f}</span></div>
+<div style="margin-top: 20px; padding: 15px; background-color: #121212; border-radius: 6px; border-left: 4px solid #c5a059;">
+<div class="quote-row" style="margin-bottom: 5px;"><span>Internal Raw Food Cost</span> <span>${total_food_cost:,.2f}</span></div>
+<div class="quote-row profit" style="margin-bottom: 0;"><span>Projected Net Profit</span> <span>${profit:,.2f} ({margin:.1f}%)</span></div>
+</div>
+</div>"""
+            st.markdown(quote_html, unsafe_allow_html=True)
 
     # --- TAB 2: PIZZA BUILDER ---
     with tabs[1]:
@@ -231,7 +221,7 @@ def main():
         
         with c1:
             st.markdown("### The Canvas")
-            base = st.selectbox("Crust Base (From Dough Connection)", ["10\" Dough Ball", "12\" Dough Ball", "16\" Dough Ball"])
+            base = st.selectbox("Crust Base", ["10\" Dough Ball", "12\" Dough Ball", "16\" Dough Ball"])
             base_cost = ing_dict.get(base, 0.0)
             
             st.markdown("### The Sauce")
@@ -275,15 +265,13 @@ def main():
                 bd_df['Line Cost'] = bd_df['Line Cost'].apply(lambda x: f"${x:.2f}")
                 st.dataframe(bd_df, use_container_width=True, hide_index=True)
                 
-            # Target an 80% margin: Price = Cost / 0.20
             target_price = total_cost / 0.20 if total_cost > 0 else 0.0
             
-            st.markdown(f"""
-            <div class="quote-box" style="margin-top: 20px;">
-                <div class="quote-row"><span>Total Raw Food Cost</span> <span>${total_cost:.2f}</span></div>
-                <div class="quote-row total" style="color: #238636;"><span>Suggested Menu Price (80% Margin)</span> <span>${target_price:.2f}</span></div>
-            </div>
-            """, unsafe_allow_html=True)
+            builder_html = f"""<div class="quote-box" style="margin-top: 20px;">
+<div class="quote-row"><span>Total Raw Food Cost</span> <span>${total_cost:.2f}</span></div>
+<div class="quote-row total" style="color: #238636;"><span>Suggested Menu Price (80% Margin)</span> <span>${target_price:.2f}</span></div>
+</div>"""
+            st.markdown(builder_html, unsafe_allow_html=True)
 
     # --- TAB 3: RECIPE MARGINS ---
     with tabs[2]:
@@ -292,13 +280,10 @@ def main():
         with col_sel:
             selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()), key="margin_pie")
         
-        # Bulletproof Merge Logic
         df_recipe = recipes_data[recipes_data['Recipe'] == selected_pie].copy()
         df_recipe['match_ing'] = df_recipe['Ingredient'].str.strip()
-        
         safe_ing_df = ingredients_data.copy()
         safe_ing_df['match_ing'] = safe_ing_df['Ingredient'].str.strip()
-        
         merged_recipe = pd.merge(df_recipe, safe_ing_df[['match_ing', 'Cost']], on="match_ing", how="left")
         merged_recipe['Cost'] = merged_recipe['Cost'].fillna(0.0)
         merged_recipe['Line Cost'] = merged_recipe['Ounces'] * merged_recipe['Cost']
@@ -326,21 +311,18 @@ def main():
                 link = row.get('link') or row.get('url') or "#"
                 href = link if str(link).startswith('http') else '#'
                 
-                # High-End SVG Document Icon
                 svg_icon = '''<svg viewBox="0 0 24 24">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                <polyline points="14 2 14 8 20 8"></polyline>
-                                <line x1="16" y1="13" x2="8" y2="13"></line>
-                                <line x1="16" y1="17" x2="8" y2="17"></line>
-                                <polyline points="10 9 9 9 8 9"></polyline>
-                              </svg>'''
+<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+<polyline points="14 2 14 8 20 8"></polyline>
+<line x1="16" y1="13" x2="8" y2="13"></line>
+<line x1="16" y1="17" x2="8" y2="17"></line>
+<polyline points="10 9 9 9 8 9"></polyline>
+</svg>'''
                 
-                vault_html += f'''
-                    <a href="{href}" target="_blank" class="doc-card">
-                        {svg_icon}
-                        <div class="doc-title">{name}</div>
-                    </a>
-                '''
+                vault_html += f'''<a href="{href}" target="_blank" class="doc-card">
+{svg_icon}
+<div class="doc-title">{name}</div>
+</a>'''
             vault_html += '</div>'
             st.markdown(vault_html, unsafe_allow_html=True)
         else:
