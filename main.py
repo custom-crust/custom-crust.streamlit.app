@@ -103,8 +103,11 @@ recipes_data = pd.DataFrame([
 ], columns=["Recipe", "Ingredient", "Ounces"])
 
 menu_prices = {
-    "The Plain Jane 16\"": 19.00, "The Premium Pepperoni 16\"": 23.00, 
-    "The Carnivore 16\"": 28.00, "The Bianco Veggie 16\"": 28.00, "Large Calzone": 22.00
+    "The Plain Jane 16\"": 19.00, 
+    "The Premium Pepperoni 16\"": 23.00, 
+    "The Carnivore 16\"": 28.00, 
+    "The Bianco Veggie 16\"": 28.00, 
+    "Large Calzone": 22.00
 }
 
 # --- 4. DATA HELPERS ---
@@ -133,7 +136,6 @@ def main():
     st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0;'>CCK</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #b0b0b0; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px;'>Command Center</p>", unsafe_allow_html=True)
 
-    # Note: Flush left HTML block to prevent Markdown from treating it as raw code
     quick_links_html = """<div class="quick-links-container">
 <a href="https://www3.usfoods.com/order" target="_blank" class="quick-link-card">
 <svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -168,43 +170,71 @@ QuickBooks
         c_in, c_out = st.columns([1, 1.5], gap="large")
         
         with c_in:
-            st.markdown("<h3 style='margin-bottom: 20px;'>Event Parameters</h3>", unsafe_allow_html=True)
-            guests = st.number_input("Number of Guests", min_value=1, value=50, step=5)
-            event_fee = st.number_input("Flat Travel/Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
+            st.markdown("<h3 style='margin-bottom: 20px;'>1. Event Parameters</h3>", unsafe_allow_html=True)
+            c_g, c_f = st.columns(2)
+            guests = c_g.number_input("Est. Guests (For reference)", min_value=1, value=50, step=5)
+            event_fee = c_f.number_input("Flat Travel/Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
             
-            slices_needed = guests * 2.5
-            pies_needed = math.ceil(slices_needed / 8)
-            cheese_pies = math.ceil(pies_needed * 0.40)
-            pep_pies = math.ceil(pies_needed * 0.40)
-            spec_pies = pies_needed - cheese_pies - pep_pies
+            # Helper logic
+            pies_needed = math.ceil((guests * 2.5) / 8)
+            st.info(f"💡 **Rule of Thumb:** For {guests} guests, you will need about **{pies_needed} large pies**.")
             
-            cost_cheese = cheese_pies * get_recipe_cost("The Plain Jane 16\"")
-            cost_pep = pep_pies * get_recipe_cost("The Premium Pepperoni 16\"")
-            cost_spec = spec_pies * get_recipe_cost("The Carnivore 16\"")
-            total_food_cost = cost_cheese + cost_pep + cost_spec
-            
-            retail_cheese = cheese_pies * menu_prices["The Plain Jane 16\""]
-            retail_pep = pep_pies * menu_prices["The Premium Pepperoni 16\""]
-            retail_spec = spec_pies * menu_prices["The Carnivore 16\""]
-            subtotal = retail_cheese + retail_pep + retail_spec
-            total_retail = subtotal + event_fee
-            
-            profit = total_retail - total_food_cost
-            margin = (profit / total_retail) * 100 if total_retail > 0 else 0
+            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>2. Build the Order</h3>", unsafe_allow_html=True)
+            order_qtys = {}
+            for item, price in menu_prices.items():
+                order_qtys[item] = st.number_input(f"{item} (${price:.2f})", min_value=0, value=0, step=1)
+                
+            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>3. Taxes & Fees</h3>", unsafe_allow_html=True)
+            c_t, c_c = st.columns(2)
+            apply_tax = c_t.checkbox("Add MA Meals Tax (6.25%)", value=True)
+            apply_cc = c_c.checkbox("Add CC Fee (2.29%)", value=False)
 
         with c_out:
-            # Note: Flush left HTML block
+            pizza_subtotal = 0.0
+            total_food_cost = 0.0
+            total_pies = 0
+            order_lines = ""
+            
+            for item, qty in order_qtys.items():
+                if qty > 0:
+                    item_price = menu_prices[item]
+                    item_cost = get_recipe_cost(item)
+                    
+                    pizza_subtotal += (item_price * qty)
+                    total_food_cost += (item_cost * qty)
+                    total_pies += qty
+                    order_lines += f'<div class="quote-row"><span>{qty}x {item}</span> <span>${(item_price * qty):,.2f}</span></div>\n'
+            
+            if total_pies == 0:
+                order_lines = '<div class="quote-row"><span style="color: #666; font-style: italic;">No items added to order yet.</span> <span>$0.00</span></div>\n'
+                
+            taxable_amount = pizza_subtotal + event_fee
+            tax_amount = (taxable_amount * 0.0625) if apply_tax else 0.0
+            
+            subtotal_with_tax = taxable_amount + tax_amount
+            cc_fee_amount = (subtotal_with_tax * 0.0229) if apply_cc else 0.0
+            
+            final_quote = subtotal_with_tax + cc_fee_amount
+            
+            # Profit Calculation: Net Revenue (pre-tax/fee) minus Food Cost
+            net_revenue = pizza_subtotal + event_fee
+            profit = net_revenue - total_food_cost
+            margin = (profit / net_revenue) * 100 if net_revenue > 0 else 0.0
+
             quote_html = f"""<div class="quote-box">
-<div class="quote-header">Catering Proposal</div>
-<div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">LOGISTICS (BASED ON {guests} GUESTS)</div>
-<div class="quote-row"><span>Total 16" Pizzas Required</span> <span>{pies_needed}</span></div>
-<div class="quote-row"><span>├─ The Plain Jane (Cheese)</span> <span>{cheese_pies}</span></div>
-<div class="quote-row"><span>├─ The Premium Pepperoni</span> <span>{pep_pies}</span></div>
-<div class="quote-row"><span>└─ Specialty (e.g. Carnivore)</span> <span>{spec_pies}</span></div>
+<div class="quote-header">Custom Catering Proposal</div>
+<div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">ORDER SUMMARY ({total_pies} ITEMS TOTAL)</div>
+{order_lines}
 <div style="color: #b0b0b0; margin-top: 25px; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">FINANCIALS</div>
-<div class="quote-row"><span>Pizza Subtotal</span> <span>${subtotal:,.2f}</span></div>
-<div class="quote-row"><span>Setup / Travel Fee</span> <span>${event_fee:,.2f}</span></div>
-<div class="quote-row total"><span>Recommended Client Quote</span> <span>${total_retail:,.2f}</span></div>
+<div class="quote-row"><span>Pizza Subtotal</span> <span>${pizza_subtotal:,.2f}</span></div>
+<div class="quote-row"><span>Setup / Travel Fee</span> <span>${event_fee:,.2f}</span></div>"""
+
+            if apply_tax:
+                quote_html += f'\n<div class="quote-row"><span>MA Meals Tax (6.25%)</span> <span>${tax_amount:,.2f}</span></div>'
+            if apply_cc:
+                quote_html += f'\n<div class="quote-row"><span>Credit Card Fee (2.29%)</span> <span>${cc_fee_amount:,.2f}</span></div>'
+
+            quote_html += f"""\n<div class="quote-row total"><span>Total Client Quote</span> <span>${final_quote:,.2f}</span></div>
 <div style="margin-top: 20px; padding: 15px; background-color: #121212; border-radius: 6px; border-left: 4px solid #c5a059;">
 <div class="quote-row" style="margin-bottom: 5px;"><span>Internal Raw Food Cost</span> <span>${total_food_cost:,.2f}</span></div>
 <div class="quote-row profit" style="margin-bottom: 0;"><span>Projected Net Profit</span> <span>${profit:,.2f} ({margin:.1f}%)</span></div>
