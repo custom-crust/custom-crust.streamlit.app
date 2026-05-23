@@ -3,7 +3,7 @@ import pandas as pd
 import math
 import os
 from streamlit_gsheets import GSheetsConnection
-from fpdf import FPDF  # NEW: Added for PDF Generation
+from fpdf import FPDF  # PDF Generation
 
 # --- 1. CONFIGURATION & SECURITY ---
 st.set_page_config(page_title="CCK Command Center", layout="wide", page_icon="🍕")
@@ -111,7 +111,6 @@ if not st.session_state.authenticated:
                 st.error("Invalid PIN. Access Denied.")
     st.stop()
 
-
 # --- 3. HARDCODED MASTER DATA ENGINE ---
 ingredients_data = pd.DataFrame([
     ["10\" Dough Ball", 0.95], ["12\" Dough Ball", 1.25], ["16\" Dough Ball", 1.85],
@@ -175,6 +174,20 @@ def generate_pdf_quote(client_name, event_date, order_qtys, menu_prices, event_f
     black = (30, 30, 30)
     gray = (100, 100, 100)
     
+    # --- LOGO INJECTION ---
+    # Find the logo file if it exists locally in your deployment
+    logo_path = "logo.png" if os.path.exists("logo.png") else ("CCK_Logo.png" if os.path.exists("CCK_Logo.png") else None)
+    
+    if logo_path:
+        # pdf.w gets the width of the document. Standard is ~210mm.
+        # We set the logo width to 40mm and center it perfectly using (page_width - logo_width) / 2
+        logo_width = 40
+        x_center = (pdf.w - logo_width) / 2
+        pdf.image(logo_path, x=x_center, y=10, w=logo_width)
+        pdf.ln(45) # Pushes the "CUSTOM CRUST KITCHEN" text cleanly below the image
+    else:
+        pdf.ln(15) # Default spacing if no logo is found
+    
     # Header
     pdf.set_font("Arial", 'B', 24)
     pdf.set_text_color(*gold)
@@ -182,7 +195,7 @@ def generate_pdf_quote(client_name, event_date, order_qtys, menu_prices, event_f
     pdf.set_font("Arial", 'B', 12)
     pdf.set_text_color(*gray)
     pdf.cell(0, 8, "CATERING ESTIMATE", ln=True, align='C')
-    pdf.line(10, 35, 200, 35)
+    pdf.line(10, pdf.get_y() + 5, 200, pdf.get_y() + 5)
     pdf.ln(15)
     
     # Client Info Box
@@ -260,7 +273,7 @@ def generate_pdf_quote(client_name, event_date, order_qtys, menu_prices, event_f
 def main():
     vault_df = load_gsheets()
 
-    # Dynamic Centered Logo
+    # Dynamic Centered Logo for the Dashboard
     c_left, c_logo, c_right = st.columns([4, 1, 4])
     with c_logo:
         if os.path.exists("CCK_Logo.png"):
@@ -308,7 +321,6 @@ QuickBooks
         with c_in:
             st.markdown("<h3 style='margin-bottom: 20px;'>1. Event Parameters</h3>", unsafe_allow_html=True)
             
-            # --- NEW CLIENT INFO FIELDS ---
             c_client1, c_client2 = st.columns(2)
             client_name = c_client1.text_input("Client Name (Optional)", placeholder="e.g. Bruno Kreusch")
             event_date = c_client2.text_input("Event Date (Optional)", placeholder="e.g. June 18th")
@@ -383,9 +395,8 @@ QuickBooks
 </div>"""
             st.markdown(quote_html, unsafe_allow_html=True)
             
-            # --- NEW PDF EXPORT BUTTON ---
             if total_pies > 0:
-                st.write("") # Spacer
+                st.write("")
                 pdf_bytes = generate_pdf_quote(
                     client_name, event_date, order_qtys, menu_prices, 
                     event_fee, pizza_subtotal, tax_amount, cc_fee_amount, final_quote, total_pies
