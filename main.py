@@ -3,6 +3,7 @@ import pandas as pd
 import math
 import os
 from streamlit_gsheets import GSheetsConnection
+from fpdf import FPDF  # NEW: Added for PDF Generation
 
 # --- 1. CONFIGURATION & SECURITY ---
 st.set_page_config(page_title="CCK Command Center", layout="wide", page_icon="🍕")
@@ -108,7 +109,7 @@ if not st.session_state.authenticated:
                 st.rerun()
             else:
                 st.error("Invalid PIN. Access Denied.")
-    st.stop() # Stops the rest of the app from loading if not authenticated
+    st.stop()
 
 
 # --- 3. HARDCODED MASTER DATA ENGINE ---
@@ -164,11 +165,102 @@ def load_gsheets():
     except: 
         return pd.DataFrame()
 
-# --- 5. MAIN APP ---
+# --- 5. PDF GENERATOR ---
+def generate_pdf_quote(client_name, event_date, order_qtys, menu_prices, event_fee, pizza_subtotal, tax_amount, cc_fee_amount, final_quote, total_pies):
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Brand Colors
+    gold = (197, 160, 89)
+    black = (30, 30, 30)
+    gray = (100, 100, 100)
+    
+    # Header
+    pdf.set_font("Arial", 'B', 24)
+    pdf.set_text_color(*gold)
+    pdf.cell(0, 12, "CUSTOM CRUST KITCHEN", ln=True, align='C')
+    pdf.set_font("Arial", 'B', 12)
+    pdf.set_text_color(*gray)
+    pdf.cell(0, 8, "CATERING ESTIMATE", ln=True, align='C')
+    pdf.line(10, 35, 200, 35)
+    pdf.ln(15)
+    
+    # Client Info Box
+    if client_name or event_date:
+        pdf.set_font("Arial", 'B', 12)
+        pdf.set_text_color(*black)
+        pdf.cell(0, 8, "EVENT DETAILS", ln=True)
+        pdf.set_font("Arial", '', 11)
+        pdf.set_text_color(*gray)
+        if client_name:
+            pdf.cell(0, 6, f"Client: {client_name}", ln=True)
+        if event_date:
+            pdf.cell(0, 6, f"Date: {event_date}", ln=True)
+        pdf.ln(10)
+    
+    # Order Summary Header
+    pdf.set_font("Arial", 'B', 14)
+    pdf.set_text_color(*black)
+    pdf.cell(0, 10, f"ORDER SUMMARY ({total_pies} ITEMS TOTAL)", ln=True)
+    pdf.set_font("Arial", '', 12)
+    pdf.set_text_color(*black)
+    
+    # Line Items
+    for item, qty in order_qtys.items():
+        if qty > 0:
+            item_price = menu_prices[item]
+            line_total = item_price * qty
+            pdf.cell(140, 8, f"{qty}x  {item}", 0, 0)
+            pdf.cell(50, 8, f"${line_total:,.2f}", 0, 1, 'R')
+            
+    pdf.ln(10)
+    
+    # Financials Header
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "FINANCIALS", ln=True)
+    pdf.set_font("Arial", '', 12)
+    
+    # Subtotals
+    pdf.cell(140, 8, "Pizza Subtotal", 0, 0)
+    pdf.cell(50, 8, f"${pizza_subtotal:,.2f}", 0, 1, 'R')
+    
+    pdf.cell(140, 8, "Setup / Travel Fee", 0, 0)
+    pdf.cell(50, 8, f"${event_fee:,.2f}", 0, 1, 'R')
+    
+    if tax_amount > 0:
+        pdf.cell(140, 8, "MA Meals Tax (7.0%)", 0, 0)
+        pdf.cell(50, 8, f"${tax_amount:,.2f}", 0, 1, 'R')
+        
+    if cc_fee_amount > 0:
+        pdf.cell(140, 8, "Credit Card Fee (2.29%)", 0, 0)
+        pdf.cell(50, 8, f"${cc_fee_amount:,.2f}", 0, 1, 'R')
+        
+    pdf.line(10, pdf.get_y() + 2, 200, pdf.get_y() + 2)
+    pdf.ln(5)
+    
+    # Total
+    pdf.set_font("Arial", 'B', 16)
+    pdf.set_text_color(*gold)
+    pdf.cell(140, 10, "ESTIMATED TOTAL", 0, 0)
+    pdf.cell(50, 10, f"${final_quote:,.2f}", 0, 1, 'R')
+    
+    # Footer
+    pdf.ln(30)
+    pdf.set_font("Arial", 'I', 10)
+    pdf.set_text_color(*gray)
+    pdf.multi_cell(0, 6, "Thank you for choosing Custom Crust Kitchen! This document is an estimate to give you an accurate idea of costs. Final pricing may adjust based on exact headcount, menu alterations, or specific event requirements.", align='C')
+    
+    # Safely handle output for FPDF version compatibility
+    try:
+        return bytes(pdf.output()) # Modern FPDF2
+    except:
+        return pdf.output(dest='S').encode('latin-1') # Legacy FPDF
+
+# --- 6. MAIN APP ---
 def main():
     vault_df = load_gsheets()
 
-    # Dynamic Centered Logo (Column sizing adjusted to 4-1-4 to make logo 40% smaller)
+    # Dynamic Centered Logo
     c_left, c_logo, c_right = st.columns([4, 1, 4])
     with c_logo:
         if os.path.exists("CCK_Logo.png"):
@@ -215,6 +307,13 @@ QuickBooks
         
         with c_in:
             st.markdown("<h3 style='margin-bottom: 20px;'>1. Event Parameters</h3>", unsafe_allow_html=True)
+            
+            # --- NEW CLIENT INFO FIELDS ---
+            c_client1, c_client2 = st.columns(2)
+            client_name = c_client1.text_input("Client Name (Optional)", placeholder="e.g. Bruno Kreusch")
+            event_date = c_client2.text_input("Event Date (Optional)", placeholder="e.g. June 18th")
+            st.write("---")
+            
             c_g, c_f = st.columns(2)
             guests = c_g.number_input("Est. Guests (For reference)", min_value=1, value=50, step=5)
             event_fee = c_f.number_input("Flat Travel/Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
@@ -283,6 +382,22 @@ QuickBooks
 </div>
 </div>"""
             st.markdown(quote_html, unsafe_allow_html=True)
+            
+            # --- NEW PDF EXPORT BUTTON ---
+            if total_pies > 0:
+                st.write("") # Spacer
+                pdf_bytes = generate_pdf_quote(
+                    client_name, event_date, order_qtys, menu_prices, 
+                    event_fee, pizza_subtotal, tax_amount, cc_fee_amount, final_quote, total_pies
+                )
+                
+                st.download_button(
+                    label="📄 Download Official PDF Estimate",
+                    data=pdf_bytes,
+                    file_name=f"CCK_Estimate_{client_name.replace(' ', '_') if client_name else 'Client'}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
 
     # --- TAB 2: PIZZA BUILDER ---
     with tabs[1]:
