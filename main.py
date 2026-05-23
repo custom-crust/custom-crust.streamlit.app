@@ -113,7 +113,7 @@ if not st.session_state.authenticated:
 
 # --- 3. HARDCODED MASTER DATA ENGINE ---
 ingredients_data = pd.DataFrame([
-    ["10\" Dough Ball", 0.95], ["12\" Dough Ball", 1.25], ["16\" Dough Ball", 1.85],
+    ["10\" Dough Ball", 0.95], ["12\" Dough Ball", 1.25], ["14\" Dough Ball", 1.85],
     ["House Pizza Sauce", 0.04], ["Buffalo Sauce", 0.13], ["Mike's Hot Honey", 0.61],
     ["Grande Mozzarella", 0.23], ["Fresh Mozzarella", 0.38], ["Ricotta Cheese", 0.28],
     ["Blue Cheese Crumbles", 0.25],
@@ -126,23 +126,32 @@ ingredients_data = pd.DataFrame([
 ing_dict = {row['Ingredient'].strip(): float(row['Cost']) for index, row in ingredients_data.iterrows()}
 
 recipes_data = pd.DataFrame([
-    ["The Plain Jane 16\"", "16\" Dough Ball", 1], ["The Plain Jane 16\"", "House Pizza Sauce", 8], ["The Plain Jane 16\"", "Grande Mozzarella", 13],
-    ["The Premium Pepperoni 16\"", "16\" Dough Ball", 1], ["The Premium Pepperoni 16\"", "House Pizza Sauce", 8], ["The Premium Pepperoni 16\"", "Grande Mozzarella", 12], ["The Premium Pepperoni 16\"", "Premium Sliced Pepperoni", 4.5],
-    ["The Carnivore 16\"", "16\" Dough Ball", 1], ["The Carnivore 16\"", "House Pizza Sauce", 7], ["The Carnivore 16\"", "Grande Mozzarella", 10], ["The Carnivore 16\"", "Premium Sliced Pepperoni", 3], ["The Carnivore 16\"", "Fontanini Sausage", 4], ["The Carnivore 16\"", "Candied Bacon", 3], ["The Carnivore 16\"", "Mike's Hot Honey", 1],
-    ["The Bianco Veggie 16\"", "16\" Dough Ball", 1], ["The Bianco Veggie 16\"", "Sliced Garlic", 1], ["The Bianco Veggie 16\"", "Grande Mozzarella", 8], ["The Bianco Veggie 16\"", "Ricotta Cheese", 5], ["The Bianco Veggie 16\"", "Green Peppers", 4], ["The Bianco Veggie 16\"", "Black Olives", 3],
-    ["The Buffalo Soldier 16\"", "16\" Dough Ball", 1], ["The Buffalo Soldier 16\"", "Buffalo Sauce", 5], ["The Buffalo Soldier 16\"", "Grande Mozzarella", 9], ["The Buffalo Soldier 16\"", "Diced Chicken", 7], ["The Buffalo Soldier 16\"", "Blue Cheese Crumbles", 2],
-    ["Custom 16\" (Standard Toppings)", "16\" Dough Ball", 1], ["Custom 16\" (Standard Toppings)", "House Pizza Sauce", 8], ["Custom 16\" (Standard Toppings)", "Grande Mozzarella", 12], ["Custom 16\" (Standard Toppings)", "Green Peppers", 3], ["Custom 16\" (Standard Toppings)", "Onion", 3],
-    ["Custom 16\" (Premium Toppings)", "16\" Dough Ball", 1], ["Custom 16\" (Premium Toppings)", "House Pizza Sauce", 8], ["Custom 16\" (Premium Toppings)", "Grande Mozzarella", 12], ["Custom 16\" (Premium Toppings)", "Premium Sliced Pepperoni", 3], ["Custom 16\" (Premium Toppings)", "Ricotta Cheese", 3]
+    # ADULT 14" PIES
+    ["The Plain Jane 14\"", "14\" Dough Ball", 1], ["The Plain Jane 14\"", "House Pizza Sauce", 8], ["The Plain Jane 14\"", "Grande Mozzarella", 13],
+    ["The Premium Pepperoni 14\"", "14\" Dough Ball", 1], ["The Premium Pepperoni 14\"", "House Pizza Sauce", 8], ["The Premium Pepperoni 14\"", "Grande Mozzarella", 12], ["The Premium Pepperoni 14\"", "Premium Sliced Pepperoni", 4.5],
+    ["The Carnivore 14\"", "14\" Dough Ball", 1], ["The Carnivore 14\"", "House Pizza Sauce", 7], ["The Carnivore 14\"", "Grande Mozzarella", 10], ["The Carnivore 14\"", "Premium Sliced Pepperoni", 3], ["The Carnivore 14\"", "Fontanini Sausage", 4], ["The Carnivore 14\"", "Candied Bacon", 3], ["The Carnivore 14\"", "Mike's Hot Honey", 1],
+    ["The Bianco Veggie 14\"", "14\" Dough Ball", 1], ["The Bianco Veggie 14\"", "Sliced Garlic", 1], ["The Bianco Veggie 14\"", "Grande Mozzarella", 8], ["The Bianco Veggie 14\"", "Ricotta Cheese", 5], ["The Bianco Veggie 14\"", "Green Peppers", 4], ["The Bianco Veggie 14\"", "Black Olives", 3],
+    ["The Buffalo Soldier 14\"", "14\" Dough Ball", 1], ["The Buffalo Soldier 14\"", "Buffalo Sauce", 5], ["The Buffalo Soldier 14\"", "Grande Mozzarella", 9], ["The Buffalo Soldier 14\"", "Diced Chicken", 7], ["The Buffalo Soldier 14\"", "Blue Cheese Crumbles", 2],
+    ["Custom 14\" (Standard Toppings)", "14\" Dough Ball", 1], ["Custom 14\" (Standard Toppings)", "House Pizza Sauce", 8], ["Custom 14\" (Standard Toppings)", "Grande Mozzarella", 12], ["Custom 14\" (Standard Toppings)", "Green Peppers", 3], ["Custom 14\" (Standard Toppings)", "Onion", 3],
+    ["Custom 14\" (Premium Toppings)", "14\" Dough Ball", 1], ["Custom 14\" (Premium Toppings)", "House Pizza Sauce", 8], ["Custom 14\" (Premium Toppings)", "Grande Mozzarella", 12], ["Custom 14\" (Premium Toppings)", "Premium Sliced Pepperoni", 3], ["Custom 14\" (Premium Toppings)", "Ricotta Cheese", 3],
+    
+    # KIDS 12" PIES
+    ["Kids Cheese 12\"", "12\" Dough Ball", 1], ["Kids Cheese 12\"", "House Pizza Sauce", 4.5], ["Kids Cheese 12\"", "Grande Mozzarella", 7],
+    ["Kids Pepperoni 12\"", "12\" Dough Ball", 1], ["Kids Pepperoni 12\"", "House Pizza Sauce", 4.5], ["Kids Pepperoni 12\"", "Grande Mozzarella", 7], ["Kids Pepperoni 12\"", "Premium Sliced Pepperoni", 1.5],
+    ["Kids 2-Topping 12\"", "12\" Dough Ball", 1], ["Kids 2-Topping 12\"", "House Pizza Sauce", 4.5], ["Kids 2-Topping 12\"", "Grande Mozzarella", 7], ["Kids 2-Topping 12\"", "Green Peppers", 1], ["Kids 2-Topping 12\"", "Onion", 1]
 ], columns=["Recipe", "Ingredient", "Ounces"])
 
 menu_prices = {
-    "The Plain Jane 16\"": 19.00, 
-    "The Premium Pepperoni 16\"": 23.00, 
-    "The Carnivore 16\"": 28.00, 
-    "The Bianco Veggie 16\"": 28.00, 
-    "The Buffalo Soldier 16\"": 28.00,
-    "Custom 16\" (Standard Toppings)": 24.00,
-    "Custom 16\" (Premium Toppings)": 28.00
+    "The Plain Jane 14\"": 17.00, 
+    "The Premium Pepperoni 14\"": 23.00, 
+    "The Carnivore 14\"": 26.00, 
+    "The Bianco Veggie 14\"": 24.00, 
+    "The Buffalo Soldier 14\"": 24.00,
+    "Custom 14\" (Standard Toppings)": 24.00,
+    "Custom 14\" (Premium Toppings)": 28.00,
+    "Kids Cheese 12\"": 10.00,
+    "Kids Pepperoni 12\"": 12.00,
+    "Kids 2-Topping 12\"": 14.00
 }
 
 # --- 4. DATA HELPERS ---
@@ -175,18 +184,15 @@ def generate_pdf_quote(client_name, event_date, order_qtys, menu_prices, event_f
     gray = (100, 100, 100)
     
     # --- LOGO INJECTION ---
-    # Find the logo file if it exists locally in your deployment
     logo_path = "logo.png" if os.path.exists("logo.png") else ("CCK_Logo.png" if os.path.exists("CCK_Logo.png") else None)
     
     if logo_path:
-        # pdf.w gets the width of the document. Standard is ~210mm.
-        # We set the logo width to 40mm and center it perfectly using (page_width - logo_width) / 2
-        logo_width = 40
+        logo_width = 30
         x_center = (pdf.w - logo_width) / 2
         pdf.image(logo_path, x=x_center, y=10, w=logo_width)
-        pdf.ln(45) # Pushes the "CUSTOM CRUST KITCHEN" text cleanly below the image
+        pdf.ln(35) 
     else:
-        pdf.ln(15) # Default spacing if no logo is found
+        pdf.ln(15)
     
     # Header
     pdf.set_font("Arial", 'B', 24)
@@ -274,7 +280,7 @@ def main():
     vault_df = load_gsheets()
 
     # Dynamic Centered Logo for the Dashboard
-    c_left, c_logo, c_right = st.columns([4, 1, 4])
+    c_left, c_logo, c_right = st.columns([5, 1, 5])
     with c_logo:
         if os.path.exists("CCK_Logo.png"):
             st.image("CCK_Logo.png", use_container_width=True)
@@ -326,12 +332,15 @@ QuickBooks
             event_date = c_client2.text_input("Event Date (Optional)", placeholder="e.g. June 18th")
             st.write("---")
             
-            c_g, c_f = st.columns(2)
-            guests = c_g.number_input("Est. Guests (For reference)", min_value=1, value=50, step=5)
-            event_fee = c_f.number_input("Flat Travel/Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
+            # --- NEW ADULT & KIDS BREAKDOWN ---
+            c_g, c_k, c_f = st.columns(3)
+            adults = c_g.number_input("Est. Adults", min_value=1, value=40, step=5)
+            kids = c_k.number_input("Est. Kids", min_value=0, value=10, step=5)
+            event_fee = c_f.number_input("Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
             
-            pies_needed = math.ceil((guests * 2.5) / 8)
-            st.info(f"💡 **Rule of Thumb:** For {guests} guests, you will need about **{pies_needed} large pies**.")
+            adult_pies = math.ceil((adults * 3) / 6)
+            kid_pies = math.ceil((kids * 2) / 8)
+            st.info(f"💡 **Rule of Thumb:** You will need about **{adult_pies} adult pies** (14\") and **{kid_pies} kids pies** (12\").")
             
             st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>2. Build the Order</h3>", unsafe_allow_html=True)
             order_qtys = {}
@@ -419,7 +428,7 @@ QuickBooks
         
         with c1:
             st.markdown("### The Canvas")
-            base = st.selectbox("Crust Base", ["10\" Dough Ball", "12\" Dough Ball", "16\" Dough Ball"])
+            base = st.selectbox("Crust Base", ["10\" Dough Ball", "12\" Dough Ball", "14\" Dough Ball"])
             base_cost = ing_dict.get(base, 0.0)
             
             st.markdown("### The Sauce")
