@@ -174,7 +174,7 @@ def load_gsheets():
         return pd.DataFrame()
 
 # --- 5. PDF GENERATOR ---
-def generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote):
+def generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier):
     pdf = FPDF()
     pdf.add_page()
     
@@ -219,8 +219,6 @@ def generate_pdf_quote(client_name, event_date, event_address, event_desc, print
     # Order Summary Header
     pdf.set_font("Arial", 'B', 14)
     pdf.set_text_color(*black)
-    
-    # REMOVED the pie count from the PDF display
     pdf.cell(0, 10, "ORDER SUMMARY", ln=True)
     
     pdf.set_font("Arial", '', 12)
@@ -231,10 +229,27 @@ def generate_pdf_quote(client_name, event_date, event_address, event_desc, print
         pdf.cell(140, 8, item["desc"], 0, 0)
         pdf.cell(50, 8, f"${item['total']:,.2f}", 0, 1, 'R')
             
-    pdf.ln(10)
+    pdf.ln(8)
+    
+    # --- NEW: MENU NOTES ---
+    if len(printable_items) > 0:
+        pdf.set_font("Arial", 'B', 11)
+        pdf.set_text_color(*black)
+        pdf.cell(0, 8, "PACKAGE DETAILS & EXCLUSIONS:", ln=True)
+        pdf.set_font("Arial", '', 10)
+        pdf.set_text_color(*gray)
+        
+        if "Classic" in adult_tier:
+            pdf.cell(0, 6, "- Classic Package Includes: The Plain Jane, The Premium Pepperoni, & The Bianco Veggie.", ln=True)
+        else:
+            pdf.cell(0, 6, "- Premium Package Includes: Full Signature Pizza Menu.", ln=True)
+            
+        pdf.cell(0, 6, "- Exclusions: Calzones are exclusively for retail service and are not included in catering.", ln=True)
+        pdf.ln(8)
     
     # Financials Header
     pdf.set_font("Arial", 'B', 14)
+    pdf.set_text_color(*black)
     pdf.cell(0, 10, "FINANCIALS", ln=True)
     pdf.set_font("Arial", '', 12)
     
@@ -269,7 +284,7 @@ def generate_pdf_quote(client_name, event_date, event_address, event_desc, print
     pdf.cell(50, 10, f"${final_quote:,.2f}", 0, 1, 'R')
     
     # Footer
-    pdf.ln(30)
+    pdf.ln(25)
     pdf.set_font("Arial", 'I', 10)
     pdf.set_text_color(*gray)
     pdf.multi_cell(0, 6, "Thank you for choosing Custom Crust Kitchen! This document is an estimate to give you an accurate idea of costs. Final pricing may adjust based on exact headcount, menu alterations, or specific event requirements.", align='C')
@@ -329,7 +344,6 @@ QuickBooks
         c_in, c_out = st.columns([1, 1.5], gap="large")
         
         with c_in:
-            # --- UPDATED: REQUIRED CLIENT DETAILS ---
             st.markdown("<h3 style='margin-bottom: 20px;'>1. Event Details</h3>", unsafe_allow_html=True)
             
             c_client1, c_client2 = st.columns(2)
@@ -355,8 +369,8 @@ QuickBooks
             st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>3. Food Packages (Per Person)</h3>", unsafe_allow_html=True)
             
             c_food1, c_food2 = st.columns(2)
-            adult_tier = c_food1.selectbox("Adult Package", ["Classic ($17/head)", "Premium ($22/head)"])
-            kid_tier = c_food2.selectbox("Kids Package", ["Standard ($10/head)"])
+            adult_tier = c_food1.selectbox("Adult Package", ["Classic ($17/head)", "Premium ($22/head)"], help="Classic: Plain Jane, Pepperoni, Veggie. Premium: Full Menu.")
+            kid_tier = c_food2.selectbox("Kids Package", ["Standard ($10/head)"], help="Includes Cheese and Pepperoni.")
             
             # --- BEVERAGE PACKAGES ---
             st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>4. Beverages</h3>", unsafe_allow_html=True)
@@ -395,7 +409,7 @@ QuickBooks
             if add_adult_bevs and adults > 0:
                 adult_bev_total = adults * 5.00
                 beverage_revenue += adult_bev_total
-                beverage_cost += adults * 1.50 # Adjusted raw cost based on 2.5 drinks @ ~0.50-$0.60
+                beverage_cost += adults * 1.50 
                 
                 order_lines += f'<div class="quote-row"><span>Adult Bev Pkg ({adults} Guests)</span> <span>${adult_bev_total:,.2f}</span></div>\n'
                 printable_items.append({"desc": f"Adult Beverage Package ({adults} Guests)", "total": adult_bev_total})
@@ -403,7 +417,7 @@ QuickBooks
             if add_kid_bevs and kids > 0:
                 kid_bev_total = kids * 3.00
                 beverage_revenue += kid_bev_total
-                beverage_cost += kids * 1.00 # Adjusted raw cost based on 1.5 drinks @ ~0.67
+                beverage_cost += kids * 1.00 
                 
                 order_lines += f'<div class="quote-row"><span>Kids Bev Pkg ({kids} Guests)</span> <span>${kid_bev_total:,.2f}</span></div>\n'
                 printable_items.append({"desc": f"Kids Beverage Package ({kids} Guests)", "total": kid_bev_total})
@@ -468,7 +482,7 @@ QuickBooks
                         client_name, event_date, event_address, event_desc,
                         printable_items, event_fee, 
                         gross_subtotal, discount_amount, discount_pct, tax_amount, 
-                        cc_fee_amount, final_quote
+                        cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier
                     )
                     
                     st.download_button(
