@@ -174,7 +174,7 @@ def load_gsheets():
         return pd.DataFrame()
 
 # --- 5. PDF GENERATOR ---
-def generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies):
+def generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote):
     pdf = FPDF()
     pdf.add_page()
     
@@ -204,7 +204,7 @@ def generate_pdf_quote(client_name, event_date, event_address, event_desc, print
     pdf.line(10, pdf.get_y() + 5, 200, pdf.get_y() + 5)
     pdf.ln(10)
     
-    # Client Info Box (Now with Address & Notes)
+    # Client Info Box
     pdf.set_font("Arial", 'B', 12)
     pdf.set_text_color(*black)
     pdf.cell(0, 8, "EVENT DETAILS", ln=True)
@@ -220,9 +220,8 @@ def generate_pdf_quote(client_name, event_date, event_address, event_desc, print
     pdf.set_font("Arial", 'B', 14)
     pdf.set_text_color(*black)
     
-    total_pies = adult_pies + kid_pies
-    summary_title = f"ORDER SUMMARY (Est. {total_pies} Pies Prepared)" if total_pies > 0 else "ORDER SUMMARY"
-    pdf.cell(0, 10, summary_title, ln=True)
+    # REMOVED the pie count from the PDF display
+    pdf.cell(0, 10, "ORDER SUMMARY", ln=True)
     
     pdf.set_font("Arial", '', 12)
     pdf.set_text_color(*black)
@@ -436,7 +435,7 @@ QuickBooks
             # -- HTML RENDERING --
             quote_html = f"""<div class="quote-box">
 <div class="quote-header">Custom Catering Proposal</div>
-<div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">ORDER SUMMARY (Est. {adult_pies + kid_pies} Pies Prepared)</div>
+<div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">ORDER SUMMARY</div>
 {order_lines}
 <div style="color: #b0b0b0; margin-top: 25px; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">FINANCIALS</div>
 <div class="quote-row"><span>Food & Beverage Subtotal</span> <span>${gross_subtotal:,.2f}</span></div>"""
@@ -469,7 +468,7 @@ QuickBooks
                         client_name, event_date, event_address, event_desc,
                         printable_items, event_fee, 
                         gross_subtotal, discount_amount, discount_pct, tax_amount, 
-                        cc_fee_amount, final_quote, adult_pies, kid_pies
+                        cc_fee_amount, final_quote
                     )
                     
                     st.download_button(
