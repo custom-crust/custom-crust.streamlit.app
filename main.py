@@ -174,7 +174,7 @@ def load_gsheets():
         return pd.DataFrame()
 
 # --- 5. PDF GENERATOR ---
-def generate_pdf_quote(client_name, event_date, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, total_pies):
+def generate_pdf_quote(client_name, event_date, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies):
     pdf = FPDF()
     pdf.add_page()
     
@@ -221,14 +221,15 @@ def generate_pdf_quote(client_name, event_date, printable_items, event_fee, gros
     pdf.set_font("Arial", 'B', 14)
     pdf.set_text_color(*black)
     
-    # Dynamic header if only beverages are selected
-    summary_title = f"ORDER SUMMARY ({total_pies} PIES TOTAL)" if total_pies > 0 else "ORDER SUMMARY"
+    # Dynamic header indicating buffet scale
+    total_pies = adult_pies + kid_pies
+    summary_title = f"ORDER SUMMARY (Est. {total_pies} Pies Prepared)" if total_pies > 0 else "ORDER SUMMARY"
     pdf.cell(0, 10, summary_title, ln=True)
     
     pdf.set_font("Arial", '', 12)
     pdf.set_text_color(*black)
     
-    # Line Items (Pies + Beverages)
+    # Line Items (Packages + Beverages)
     for item in printable_items:
         pdf.cell(140, 8, item["desc"], 0, 0)
         pdf.cell(50, 8, f"${item['total']:,.2f}", 0, 1, 'R')
@@ -344,21 +345,24 @@ QuickBooks
             event_fee = c_f.number_input("Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
             
             adult_pies = math.ceil((adults * 3) / 6)
-            kid_pies = math.ceil((kids * 2) / 8)
-            st.info(f"💡 **Rule of Thumb:** You will need about **{adult_pies} adult pies** (14\") and **{kid_pies} kids pies** (12\").")
+            kid_pies = math.ceil((kids * 2) / 8) if kids > 0 else 0
             
-            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>2. Build the Order</h3>", unsafe_allow_html=True)
-            order_qtys = {}
-            for item, price in menu_prices.items():
-                order_qtys[item] = st.number_input(f"{item} (${price:.2f})", min_value=0, value=0, step=1)
-                
-            # --- NEW: BEVERAGE PACKAGES ---
+            # Show pre-event prep advice (Not on PDF)
+            st.info(f"💡 **Prep Guide:** You will need to prep ~**{adult_pies} adult pies** (14\") and **{kid_pies} kids pies** (12\").")
+            
+            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>2. Food Packages (Per Person)</h3>", unsafe_allow_html=True)
+            
+            c_food1, c_food2 = st.columns(2)
+            adult_tier = c_food1.selectbox("Adult Package", ["Classic ($17/head)", "Premium ($22/head)"])
+            kid_tier = c_food2.selectbox("Kids Package", ["Standard ($10/head)"])
+            
+            # --- BEVERAGE PACKAGES ---
             st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>3. Beverages</h3>", unsafe_allow_html=True)
             c_b1, c_b2 = st.columns(2)
-            add_adult_bevs = c_b1.checkbox(f"Adult Bev Package (${3.00}/adult)", help="Assorted Coke, Diet Coke, Sprite, Water. Assumes ~1.5 drinks per adult.")
-            add_kid_bevs = c_b2.checkbox(f"Kids Bev Package (${3.00}/kid)", help="Bottled Apple Juice & Water.")
+            add_adult_bevs = c_b1.checkbox(f"Adult Bev Package ($5.00/adult)", value=True, help="Assorted Soda & Water. Assumes ~2.5 drinks per adult.")
+            add_kid_bevs = c_b2.checkbox(f"Kids Bev Package ($3.00/kid)", value=True, help="Bottled Apple Juice & Water. Assumes ~1.5 drinks per child.")
 
-            # --- NEW: DISCOUNTS & FEES ---
+            # --- DISCOUNTS & FEES ---
             st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>4. Taxes, Discounts & Fees</h3>", unsafe_allow_html=True)
             c_t, c_d, c_c = st.columns(3)
             apply_tax = c_t.checkbox("Add MA Meals Tax (7.0%)", value=True)
@@ -366,34 +370,30 @@ QuickBooks
             apply_cc = c_c.checkbox("Add CC Fee (2.29%)", value=False)
 
         with c_out:
-            pizza_subtotal = 0.0
-            total_food_cost = 0.0
-            total_pies = 0
-            order_lines = ""
             printable_items = []
+            order_lines = ""
             
-            # Process Pizzas
-            for item, qty in order_qtys.items():
-                if qty > 0:
-                    item_price = menu_prices[item]
-                    item_cost = get_recipe_cost(item)
-                    
-                    line_total = item_price * qty
-                    pizza_subtotal += line_total
-                    total_food_cost += (item_cost * qty)
-                    total_pies += qty
-                    
-                    order_lines += f'<div class="quote-row"><span>{qty}x {item}</span> <span>${line_total:,.2f}</span></div>\n'
-                    printable_items.append({"desc": f"{qty}x {item}", "total": line_total})
+            # -- REVENUE MATH --
+            adult_food_price = 17.00 if "Classic" in adult_tier else 22.00
+            kid_food_price = 10.00
             
-            # Process Beverages
+            food_revenue = (adults * adult_food_price) + (kids * kid_food_price)
+            
+            if adults > 0:
+                order_lines += f'<div class="quote-row"><span>Adult Food Pkg - {adult_tier.split(" ")[0]} ({adults} Guests)</span> <span>${(adults * adult_food_price):,.2f}</span></div>\n'
+                printable_items.append({"desc": f"Adult Food Package - {adult_tier.split(' ')[0]} ({adults} Guests)", "total": (adults * adult_food_price)})
+                
+            if kids > 0:
+                order_lines += f'<div class="quote-row"><span>Kids Food Pkg ({kids} Guests)</span> <span>${(kids * kid_food_price):,.2f}</span></div>\n'
+                printable_items.append({"desc": f"Kids Food Package ({kids} Guests)", "total": (kids * kid_food_price)})
+
             beverage_revenue = 0.0
             beverage_cost = 0.0
             
             if add_adult_bevs and adults > 0:
-                adult_bev_total = adults * 3.00
+                adult_bev_total = adults * 5.00
                 beverage_revenue += adult_bev_total
-                beverage_cost += adults * 0.75 # Estimated cost based on bulk Costco pricing
+                beverage_cost += adults * 1.50 # Adjusted raw cost based on 2.5 drinks @ ~0.50-$0.60
                 
                 order_lines += f'<div class="quote-row"><span>Adult Bev Pkg ({adults} Guests)</span> <span>${adult_bev_total:,.2f}</span></div>\n'
                 printable_items.append({"desc": f"Adult Beverage Package ({adults} Guests)", "total": adult_bev_total})
@@ -401,16 +401,21 @@ QuickBooks
             if add_kid_bevs and kids > 0:
                 kid_bev_total = kids * 3.00
                 beverage_revenue += kid_bev_total
-                beverage_cost += kids * 0.75
+                beverage_cost += kids * 1.00 # Adjusted raw cost based on 1.5 drinks @ ~0.67
                 
                 order_lines += f'<div class="quote-row"><span>Kids Bev Pkg ({kids} Guests)</span> <span>${kid_bev_total:,.2f}</span></div>\n'
                 printable_items.append({"desc": f"Kids Beverage Package ({kids} Guests)", "total": kid_bev_total})
 
             if len(printable_items) == 0:
-                order_lines = '<div class="quote-row"><span style="color: #666; font-style: italic;">No items added to order yet.</span> <span>$0.00</span></div>\n'
+                order_lines = '<div class="quote-row"><span style="color: #666; font-style: italic;">No packages selected.</span> <span>$0.00</span></div>\n'
                 
-            # Financial Math
-            gross_subtotal = pizza_subtotal + beverage_revenue
+            # -- INTERNAL COST ESTIMATOR --
+            # Blended average cost of a premium 14" pie is roughly $4.00, Kids 12" is ~$2.00
+            est_food_cost = (adult_pies * 4.00) + (kid_pies * 2.00)
+            total_internal_cost = est_food_cost + beverage_cost
+
+            # -- FINANCIAL MATH --
+            gross_subtotal = food_revenue + beverage_revenue
             discount_amount = gross_subtotal * (discount_pct / 100.0)
             net_subtotal = gross_subtotal - discount_amount
             
@@ -423,14 +428,13 @@ QuickBooks
             final_quote = subtotal_with_tax + cc_fee_amount
             
             net_revenue = net_subtotal + event_fee
-            total_internal_cost = total_food_cost + beverage_cost
             profit = net_revenue - total_internal_cost
             margin = (profit / net_revenue) * 100 if net_revenue > 0 else 0.0
 
-            # HTML Rendering
+            # -- HTML RENDERING --
             quote_html = f"""<div class="quote-box">
 <div class="quote-header">Custom Catering Proposal</div>
-<div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">ORDER SUMMARY ({total_pies} PIES TOTAL)</div>
+<div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">ORDER SUMMARY (Est. {adult_pies + kid_pies} Pies Prepared)</div>
 {order_lines}
 <div style="color: #b0b0b0; margin-top: 25px; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">FINANCIALS</div>
 <div class="quote-row"><span>Food & Beverage Subtotal</span> <span>${gross_subtotal:,.2f}</span></div>"""
@@ -447,7 +451,7 @@ QuickBooks
 
             quote_html += f"""\n<div class="quote-row total"><span>Total Client Quote</span> <span>${final_quote:,.2f}</span></div>
 <div style="margin-top: 20px; padding: 15px; background-color: #121212; border-radius: 6px; border-left: 4px solid #c5a059;">
-<div class="quote-row" style="margin-bottom: 5px;"><span>Internal Raw Cost (Food & Bev)</span> <span>${total_internal_cost:,.2f}</span></div>
+<div class="quote-row" style="margin-bottom: 5px;"><span>Internal Raw Cost (Food & Bev Est.)</span> <span>${total_internal_cost:,.2f}</span></div>
 <div class="quote-row profit" style="margin-bottom: 0;"><span>Projected Net Profit</span> <span>${profit:,.2f} ({margin:.1f}%)</span></div>
 </div>
 </div>"""
@@ -458,7 +462,7 @@ QuickBooks
                 pdf_bytes = generate_pdf_quote(
                     client_name, event_date, printable_items, event_fee, 
                     gross_subtotal, discount_amount, discount_pct, tax_amount, 
-                    cc_fee_amount, final_quote, total_pies
+                    cc_fee_amount, final_quote, adult_pies, kid_pies
                 )
                 
                 st.download_button(
