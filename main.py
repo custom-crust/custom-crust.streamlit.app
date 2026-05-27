@@ -174,7 +174,7 @@ def load_gsheets():
         return pd.DataFrame()
 
 # --- 5. PDF GENERATOR ---
-def generate_pdf_quote(client_name, event_date, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies):
+def generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies):
     pdf = FPDF()
     pdf.add_page()
     
@@ -202,26 +202,24 @@ def generate_pdf_quote(client_name, event_date, printable_items, event_fee, gros
     pdf.set_text_color(*gray)
     pdf.cell(0, 8, "CATERING ESTIMATE", ln=True, align='C')
     pdf.line(10, pdf.get_y() + 5, 200, pdf.get_y() + 5)
-    pdf.ln(15)
+    pdf.ln(10)
     
-    # Client Info Box
-    if client_name or event_date:
-        pdf.set_font("Arial", 'B', 12)
-        pdf.set_text_color(*black)
-        pdf.cell(0, 8, "EVENT DETAILS", ln=True)
-        pdf.set_font("Arial", '', 11)
-        pdf.set_text_color(*gray)
-        if client_name:
-            pdf.cell(0, 6, f"Client: {client_name}", ln=True)
-        if event_date:
-            pdf.cell(0, 6, f"Date: {event_date}", ln=True)
-        pdf.ln(10)
+    # Client Info Box (Now with Address & Notes)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.set_text_color(*black)
+    pdf.cell(0, 8, "EVENT DETAILS", ln=True)
+    pdf.set_font("Arial", '', 11)
+    pdf.set_text_color(*gray)
+    pdf.cell(0, 6, f"Client: {client_name}", ln=True)
+    pdf.cell(0, 6, f"Date: {event_date}", ln=True)
+    pdf.cell(0, 6, f"Location: {event_address}", ln=True)
+    pdf.cell(0, 6, f"Event Notes: {event_desc}", ln=True)
+    pdf.ln(10)
     
     # Order Summary Header
     pdf.set_font("Arial", 'B', 14)
     pdf.set_text_color(*black)
     
-    # Dynamic header indicating buffet scale
     total_pies = adult_pies + kid_pies
     summary_title = f"ORDER SUMMARY (Est. {total_pies} Pies Prepared)" if total_pies > 0 else "ORDER SUMMARY"
     pdf.cell(0, 10, summary_title, ln=True)
@@ -332,13 +330,19 @@ QuickBooks
         c_in, c_out = st.columns([1, 1.5], gap="large")
         
         with c_in:
-            st.markdown("<h3 style='margin-bottom: 20px;'>1. Event Parameters</h3>", unsafe_allow_html=True)
+            # --- UPDATED: REQUIRED CLIENT DETAILS ---
+            st.markdown("<h3 style='margin-bottom: 20px;'>1. Event Details</h3>", unsafe_allow_html=True)
             
             c_client1, c_client2 = st.columns(2)
-            client_name = c_client1.text_input("Client Name (Optional)", placeholder="e.g. Bruno Kreusch")
-            event_date = c_client2.text_input("Event Date (Optional)", placeholder="e.g. June 18th")
+            client_name = c_client1.text_input("Client Name *", placeholder="e.g. Bruno Kreusch")
+            event_date = c_client2.text_input("Event Date *", placeholder="e.g. June 18th")
+            
+            c_client3, c_client4 = st.columns(2)
+            event_address = c_client3.text_input("Event Address *", placeholder="e.g. 123 Main St, Saugus, MA")
+            event_desc = c_client4.text_input("Event Notes/Type *", placeholder="e.g. Birthday Buffet in Driveway")
             st.write("---")
             
+            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>2. Guest Count & Logistics</h3>", unsafe_allow_html=True)
             c_g, c_k, c_f = st.columns(3)
             adults = c_g.number_input("Est. Adults", min_value=1, value=40, step=5)
             kids = c_k.number_input("Est. Kids", min_value=0, value=10, step=5)
@@ -347,23 +351,22 @@ QuickBooks
             adult_pies = math.ceil((adults * 3) / 6)
             kid_pies = math.ceil((kids * 2) / 8) if kids > 0 else 0
             
-            # Show pre-event prep advice (Not on PDF)
             st.info(f"💡 **Prep Guide:** You will need to prep ~**{adult_pies} adult pies** (14\") and **{kid_pies} kids pies** (12\").")
             
-            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>2. Food Packages (Per Person)</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>3. Food Packages (Per Person)</h3>", unsafe_allow_html=True)
             
             c_food1, c_food2 = st.columns(2)
             adult_tier = c_food1.selectbox("Adult Package", ["Classic ($17/head)", "Premium ($22/head)"])
             kid_tier = c_food2.selectbox("Kids Package", ["Standard ($10/head)"])
             
             # --- BEVERAGE PACKAGES ---
-            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>3. Beverages</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>4. Beverages</h3>", unsafe_allow_html=True)
             c_b1, c_b2 = st.columns(2)
             add_adult_bevs = c_b1.checkbox(f"Adult Bev Package ($5.00/adult)", value=True, help="Assorted Soda & Water. Assumes ~2.5 drinks per adult.")
             add_kid_bevs = c_b2.checkbox(f"Kids Bev Package ($3.00/kid)", value=True, help="Bottled Apple Juice & Water. Assumes ~1.5 drinks per child.")
 
             # --- DISCOUNTS & FEES ---
-            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>4. Taxes, Discounts & Fees</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>5. Taxes, Discounts & Fees</h3>", unsafe_allow_html=True)
             c_t, c_d, c_c = st.columns(3)
             apply_tax = c_t.checkbox("Add MA Meals Tax (7.0%)", value=True)
             discount_pct = c_d.number_input("Discount (%)", min_value=0.0, max_value=100.0, value=0.0, step=5.0, help="Applied to Food & Bev subtotal")
@@ -410,7 +413,6 @@ QuickBooks
                 order_lines = '<div class="quote-row"><span style="color: #666; font-style: italic;">No packages selected.</span> <span>$0.00</span></div>\n'
                 
             # -- INTERNAL COST ESTIMATOR --
-            # Blended average cost of a premium 14" pie is roughly $4.00, Kids 12" is ~$2.00
             est_food_cost = (adult_pies * 4.00) + (kid_pies * 2.00)
             total_internal_cost = est_food_cost + beverage_cost
 
@@ -457,21 +459,28 @@ QuickBooks
 </div>"""
             st.markdown(quote_html, unsafe_allow_html=True)
             
+            # --- PDF DOWNLOAD VALIDATION LOGIC ---
+            required_fields_filled = bool(client_name and event_date and event_address and event_desc)
+            
             if len(printable_items) > 0:
                 st.write("")
-                pdf_bytes = generate_pdf_quote(
-                    client_name, event_date, printable_items, event_fee, 
-                    gross_subtotal, discount_amount, discount_pct, tax_amount, 
-                    cc_fee_amount, final_quote, adult_pies, kid_pies
-                )
-                
-                st.download_button(
-                    label="📄 Download Official PDF Estimate",
-                    data=pdf_bytes,
-                    file_name=f"CCK_Estimate_{client_name.replace(' ', '_') if client_name else 'Client'}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
+                if required_fields_filled:
+                    pdf_bytes = generate_pdf_quote(
+                        client_name, event_date, event_address, event_desc,
+                        printable_items, event_fee, 
+                        gross_subtotal, discount_amount, discount_pct, tax_amount, 
+                        cc_fee_amount, final_quote, adult_pies, kid_pies
+                    )
+                    
+                    st.download_button(
+                        label="📄 Download Official PDF Estimate",
+                        data=pdf_bytes,
+                        file_name=f"CCK_Estimate_{client_name.replace(' ', '_')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+                else:
+                    st.warning("⚠️ Please fill out all required Event Details (Name, Date, Address, Notes) to unlock the PDF download.")
 
     # --- TAB 2: PIZZA BUILDER ---
     with tabs[1]:
