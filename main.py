@@ -12,6 +12,9 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1yqbd35J140KWT7ui8Ggqn68_OfG
 # *** YOUR MASTER PIN CODE ***
 ACCESS_PIN = "CCK2026!"
 
+# *** OUTLOOK CALENDAR LINK ***
+OUTLOOK_CALENDAR_LINK = "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/26efbfea-6ffe-4049-b3dc-4f9ac91ac1fc/cid-2BEC859542F27B9D/index.html"
+
 # --- 2. LUXURY CSS (Matching the CCK Website) ---
 st.markdown("""
     <style>
@@ -336,7 +339,7 @@ QuickBooks
 </div>"""
     st.markdown(quick_links_html, unsafe_allow_html=True)
 
-    tabs = st.tabs(["🎫 Event Quoter", "🍕 Pizza Builder", "📖 Recipe Margins", "🗄️ The Vault"])
+    tabs = st.tabs(["🎫 Event Quoter", "🍕 Pizza Builder", "📖 Recipe Margins", "🗄️ The Vault", "📅 Schedule"])
 
     # --- TAB 1: EVENT QUOTER ---
     with tabs[0]:
@@ -610,6 +613,42 @@ QuickBooks
             st.markdown(vault_html, unsafe_allow_html=True)
         else:
             st.info("Vault is empty or Google Sheets connection failed. Add links to your 'Vault_Index' tab.")
+
+    # --- TAB 5: WEEKLY CALENDAR ---
+    with tabs[4]:
+        st.write("##")
+        if OUTLOOK_CALENDAR_LINK == "YOUR_OUTLOOK_HTML_LINK_HERE" or OUTLOOK_CALENDAR_LINK == "":
+            st.warning("⚠️ Outlook Calendar link is missing. Please paste your HTML link into the `OUTLOOK_CALENDAR_LINK` variable at the top of the code.")
+            
+            st.markdown("""
+                <div class="quote-box" style="margin-top: 20px; border-color: #c5a059;">
+                    <h3 style="color: #c5a059;">How to sync your Outlook calendar:</h3>
+                    <ol style="color: #b0b0b0; font-size: 1.1rem; line-height: 1.8;">
+                        <li>Open Outlook Web in your browser.</li>
+                        <li>Click the <b>Gear Icon</b> (Settings) in the top right.</li>
+                        <li>Go to <b>Calendar</b> > <b>Shared Calendars</b>.</li>
+                        <li>Under <b>Publish a calendar</b>, select the calendar you want to see.</li>
+                        <li>Choose <b>Can view all details</b> and click Publish.</li>
+                        <li>Copy the <b>HTML Link</b> provided and paste it into line 13 of your code!</li>
+                    </ol>
+                </div>
+            """, unsafe_allow_html=True)
+        else:
+            # We add '&view=weekly' to the end of the URL to force the weekly layout
+            iframe_html = f"""
+            <div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border: 1px solid rgba(197, 160, 89, 0.3);">
+                <h3 style="margin-bottom: 20px; color: #c5a059;">Weekly Operations Schedule</h3>
+                <iframe 
+                    src="{OUTLOOK_CALENDAR_LINK}&view=weekly" 
+                    width="100%" 
+                    height="700" 
+                    frameborder="0" 
+                    scrolling="yes" 
+                    style="border-radius: 6px;">
+                </iframe>
+            </div>
+            """
+            st.markdown(iframe_html, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
