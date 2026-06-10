@@ -103,6 +103,9 @@ st.markdown("""
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
+if "week_offset" not in st.session_state:
+    st.session_state.week_offset = 0
+
 if not st.session_state.authenticated:
     st.markdown("""
         <div class="login-box">
@@ -227,17 +230,143 @@ def main():
             
     st.markdown("<p style='text-align: center; color: #b0b0b0; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px;'>Command Center</p>", unsafe_allow_html=True)
 
+    # REMOVED CMO PERSONA LINK
     quick_links_html = """<div class="quick-links-container">
 <a href="https://www3.usfoods.com/order" target="_blank" class="quick-link-card"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>US Foods</a>
-<a href="https://gemini.google.com/app/7e448fe20a7cd3a5" target="_blank" class="quick-link-card"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>CMO Persona</a>
 <a href="https://qbo.intuit.com" target="_blank" class="quick-link-card"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>QuickBooks</a>
 </div>"""
     st.markdown(quick_links_html, unsafe_allow_html=True)
 
-    tabs = st.tabs(["🎫 Event Quoter", "🍕 Pizza Builder", "📖 Recipe Margins", "🗄️ The Vault", "📅 Schedule"])
+    # REORDERED TABS
+    tabs = st.tabs(["📅 Calendar", "🎫 Event Quoter", "🍕 Pizza Builder", "📖 Recipe Margins", "🗄️ The Vault"])
 
-    # --- TAB 1: EVENT QUOTER ---
+    # --- TAB 1: CALENDAR ---
     with tabs[0]:
+        st.write("##")
+        
+        if not HAS_CALENDAR_LIBS:
+            st.error("⚠️ ACTION REQUIRED: To load the live calendar directly on this page, open your terminal and run: `pip install ics requests arrow`")
+        
+        ics_link = OUTLOOK_CALENDAR_LINK
+        events = []
+        is_dummy_data = False
+        
+        # Navigation Controls
+        col_prev, col_title, col_next = st.columns([1, 8, 1])
+        with col_prev:
+            if st.button("⬅️ Prev"):
+                st.session_state.week_offset -= 1
+                st.rerun()
+        with col_title:
+            if st.session_state.week_offset == 0:
+                week_title = "Current Week"
+            else:
+                week_title = f"Week of Offset: {st.session_state.week_offset}"
+            st.markdown(f"<h3 style='text-align: center; color: #c5a059; margin-bottom: 0;'>{week_title}</h3>", unsafe_allow_html=True)
+        with col_next:
+            if st.button("Next ➡️"):
+                st.session_state.week_offset += 1
+                st.rerun()
+                
+        # Get Current Week Dates with Offset
+        try:
+            today = arrow.now('US/Eastern').shift(weeks=st.session_state.week_offset)
+            start_of_week = today.shift(days=-today.weekday()).floor('day')
+            end_of_week = start_of_week.shift(days=7)
+            
+            week_days = []
+            for i in range(7):
+                day_obj = start_of_week.shift(days=i)
+                week_days.append({
+                    "day_name": day_obj.format("ddd"),
+                    "day_num": day_obj.format("D")
+                })
+        except:
+            week_days = [{"day_name": d, "day_num": ""} for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
+            start_of_week = None
+            end_of_week = None
+        
+        try:
+            # Fetch the raw calendar data
+            req = requests.get(ics_link)
+            if req.status_code == 200 and start_of_week:
+                c = Calendar(req.text)
+                for e in list(c.timeline):
+                    # Bypassing the conversion offset bug by taking the raw string time 
+                    # and turning it into an arrow object without shifting it
+                    event_time_naive = arrow.get(e.begin.naive) 
+                    
+                    if start_of_week.naive <= event_time_naive < end_of_week.naive:
+                        events.append({
+                            "day": event_time_naive.format("ddd"),
+                            "title": e.name,
+                            "time": event_time_naive.format("h:mm A"), # Formats exactly as exported
+                            "type": "major-event" if "open" in e.name.lower() else "product"
+                        })
+            else:
+                is_dummy_data = True
+        except Exception as e:
+            is_dummy_data = True
+
+        if is_dummy_data or len(events) == 0:
+            if len(events) == 0 and not is_dummy_data:
+                # User has no events this week, don't show dummy data, just empty week
+                pass
+            else:
+                is_dummy_data = True
+                if st.session_state.week_offset == 0:
+                    events = [
+                        {"day": "Mon", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
+                        {"day": "Wed", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
+                        {"day": "Wed", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
+                        {"day": "Thu", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
+                    ]
+                    week_days = [
+                        {"day_name": "Mon", "day_num": "8"}, {"day_name": "Tue", "day_num": "9"},
+                        {"day_name": "Wed", "day_num": "10"}, {"day_name": "Thu", "day_num": "11"},
+                        {"day_name": "Fri", "day_num": "12"}, {"day_name": "Sat", "day_num": "13"},
+                        {"day_name": "Sun", "day_num": "14"},
+                    ]
+
+        # NATIVE UI RENDER 
+        calendar_html = """
+        <style>
+        .weekly-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 15px; margin-top: 10px;}
+        .calendar-day { background-color: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 15px; min-height: 200px; display: flex; flex-direction: column;}
+        .calendar-day:hover { border-color: #c5a059; }
+        .day-header { font-size: 0.9rem; text-transform: uppercase; color: #b0b0b0; font-weight: 600; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
+        .day-number { font-size: 1.4rem; color: #f5f5f5;}
+        .event-card { font-size: 0.8rem; padding: 10px; border-radius: 4px; font-weight: 600; margin-bottom: 8px; line-height: 1.4;}
+        .event-card .time { font-size: 0.7rem; font-weight: 400; color: rgba(255, 255, 255, 0.7); display: block; margin-top: 4px;}
+        .product { background-color: #2c3e50; border-left: 3px solid #3498db; }
+        .operational { background-color: #27ae60; border-left: 3px solid #2ecc71; }
+        .entertainment { background-color: #8e44ad; border-left: 3px solid #9b59b6; }
+        .major-event { background-color: rgba(197, 160, 89, 0.2); color: #c5a059; border-left: 3px solid #c5a059; }
+        </style>
+        
+        <div style="background-color: #121212; border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 8px; padding: 30px;">
+        """
+        
+        if is_dummy_data:
+            calendar_html += '<div style="background-color: #332b00; color: #ffd700; padding: 10px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 15px;">⚠️ Displaying placeholder schedule. Please verify your active .ics link is valid.</div>'
+
+        calendar_html += '<div class="weekly-calendar-grid">'
+
+        for wd in week_days:
+            day_name = wd["day_name"]
+            day_num = wd["day_num"]
+            day_events = [e for e in events if e["day"] == day_name]
+            
+            calendar_html += f'<div class="calendar-day"><div class="day-header">{day_name} <span class="day-number">{day_num}</span></div>'
+            for ev in day_events:
+                calendar_html += f'<div class="event-card {ev["type"]}">{ev["title"]}<span class="time">{ev["time"]}</span></div>'
+            calendar_html += '</div>'
+            
+        calendar_html += '</div></div>'
+        st.markdown(calendar_html, unsafe_allow_html=True)
+
+    # --- TAB 2: EVENT QUOTER ---
+    with tabs[1]:
         st.write("##")
         c_in, c_out = st.columns([1, 1.5], gap="large")
         with c_in:
@@ -320,8 +449,8 @@ def main():
                 pdf_bytes = generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier)
                 st.download_button(label="📄 Download Official PDF", data=pdf_bytes, file_name=f"CCK_Estimate_{client_name}.pdf", mime="application/pdf", use_container_width=True)
 
-    # --- TAB 2: PIZZA BUILDER ---
-    with tabs[1]:
+    # --- TAB 3: PIZZA BUILDER ---
+    with tabs[2]:
         st.write("##")
         c1, c2 = st.columns([1.2, 1], gap="large")
         with c1:
@@ -341,8 +470,8 @@ def main():
 <div class="quote-row"><span>Total Raw Food Cost</span> <span>${total_cost:.2f}</span></div>
 <div class="quote-row total" style="color: #238636;"><span>Suggested Price (80% Margin)</span> <span>${total_cost / 0.20 if total_cost > 0 else 0.0:.2f}</span></div></div>""", unsafe_allow_html=True)
 
-    # --- TAB 3: RECIPE MARGINS ---
-    with tabs[2]:
+    # --- TAB 4: RECIPE MARGINS ---
+    with tabs[3]:
         st.write("##")
         selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()))
         df_recipe = recipes_data[recipes_data['Recipe'] == selected_pie].copy()
@@ -354,8 +483,8 @@ def main():
         c2.markdown(f"<div class='quote-box' style='text-align:center;'><div>FOOD COST</div><div style='font-size: 2rem; color: #da3633;'>${cost:,.2f}</div></div>", unsafe_allow_html=True)
         c3.markdown(f"<div class='quote-box' style='text-align:center;'><div>PROFIT MARGIN</div><div style='font-size: 2rem; color: #238636;'>{((price-cost)/price)*100:.1f}%</div></div>", unsafe_allow_html=True)
 
-    # --- TAB 4: THE VAULT ---
-    with tabs[3]:
+    # --- TAB 5: THE VAULT ---
+    with tabs[4]:
         st.write("##")
         if not vault_df.empty:
             vault_html = '<div class="vault-grid">'
@@ -363,112 +492,6 @@ def main():
                 name, link = row.get('document name') or row.get('name') or "Doc", row.get('link') or row.get('url') or "#"
                 vault_html += f'<a href="{link}" target="_blank" class="doc-card"><div class="doc-title">{name}</div></a>'
             st.markdown(vault_html + '</div>', unsafe_allow_html=True)
-
-    # --- TAB 5: WEEKLY CALENDAR (NATIVE NO-IFRAME FIX) ---
-    with tabs[4]:
-        st.write("##")
-        
-        if not HAS_CALENDAR_LIBS:
-            st.error("⚠️ ACTION REQUIRED: To load the live calendar directly on this page, open your terminal and run: `pip install ics requests arrow`")
-        
-        ics_link = OUTLOOK_CALENDAR_LINK
-        events = []
-        is_dummy_data = False
-        
-        # Get Current Week Dates
-        try:
-            today = arrow.now('US/Eastern')
-            start_of_week = today.shift(days=-today.weekday()).floor('day')
-            end_of_week = start_of_week.shift(days=7)
-            
-            week_days = []
-            for i in range(7):
-                day_obj = start_of_week.shift(days=i)
-                week_days.append({
-                    "day_name": day_obj.format("ddd"),
-                    "day_num": day_obj.format("D")
-                })
-        except:
-            week_days = [{"day_name": d, "day_num": ""} for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
-            start_of_week = None
-            end_of_week = None
-        
-        try:
-            # Fetch the raw calendar data
-            req = requests.get(ics_link)
-            if req.status_code == 200 and start_of_week:
-                c = Calendar(req.text)
-                for e in list(c.timeline):
-                    event_time = e.begin.to('US/Eastern')
-                    if start_of_week <= event_time < end_of_week:
-                        events.append({
-                            "day": event_time.format("ddd"),
-                            "title": e.name,
-                            "time": event_time.format("h:mm A"),
-                            "type": "major-event" if "open" in e.name.lower() else "product"
-                        })
-            else:
-                is_dummy_data = True
-        except Exception as e:
-            is_dummy_data = True
-
-        if is_dummy_data or len(events) == 0:
-            is_dummy_data = True
-            events = [
-                {"day": "Mon", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
-                {"day": "Wed", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
-                {"day": "Wed", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
-                {"day": "Thu", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
-            ]
-            # Override week_days for dummy data to match the screenshot
-            week_days = [
-                {"day_name": "Mon", "day_num": "8"},
-                {"day_name": "Tue", "day_num": "9"},
-                {"day_name": "Wed", "day_num": "10"},
-                {"day_name": "Thu", "day_num": "11"},
-                {"day_name": "Fri", "day_num": "12"},
-                {"day_name": "Sat", "day_num": "13"},
-                {"day_name": "Sun", "day_num": "14"},
-            ]
-
-        # NATIVE UI RENDER (No Iframes)
-        calendar_html = """
-        <style>
-        .weekly-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 15px; margin-top: 20px;}
-        .calendar-day { background-color: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 15px; min-height: 200px; display: flex; flex-direction: column;}
-        .calendar-day:hover { border-color: #c5a059; }
-        .day-header { font-size: 0.9rem; text-transform: uppercase; color: #b0b0b0; font-weight: 600; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
-        .day-number { font-size: 1.4rem; color: #f5f5f5;}
-        .event-card { font-size: 0.8rem; padding: 10px; border-radius: 4px; font-weight: 600; margin-bottom: 8px; line-height: 1.4;}
-        .event-card .time { font-size: 0.7rem; font-weight: 400; color: rgba(255, 255, 255, 0.7); display: block; margin-top: 4px;}
-        .product { background-color: #2c3e50; border-left: 3px solid #3498db; }
-        .operational { background-color: #27ae60; border-left: 3px solid #2ecc71; }
-        .entertainment { background-color: #8e44ad; border-left: 3px solid #9b59b6; }
-        .major-event { background-color: rgba(197, 160, 89, 0.2); color: #c5a059; border-left: 3px solid #c5a059; }
-        </style>
-        
-        <div style="background-color: #121212; border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 8px; padding: 30px;">
-            <h3 style="color: #c5a059; margin-bottom: 0;">Weekly Dashboard View</h3>
-            <p style="color: #666; font-size: 0.9rem; margin-top: 5px;">Powered by Native ICS Feed Synchronization</p>
-        """
-        
-        if is_dummy_data:
-            calendar_html += '<div style="background-color: #332b00; color: #ffd700; padding: 10px; border-radius: 4px; font-size: 0.85rem; margin-top: 10px;">⚠️ Displaying placeholder schedule. Please verify your active .ics link is valid.</div>'
-
-        calendar_html += '<div class="weekly-calendar-grid">'
-
-        for wd in week_days:
-            day_name = wd["day_name"]
-            day_num = wd["day_num"]
-            day_events = [e for e in events if e["day"] == day_name]
-            
-            calendar_html += f'<div class="calendar-day"><div class="day-header">{day_name} <span class="day-number">{day_num}</span></div>'
-            for ev in day_events:
-                calendar_html += f'<div class="event-card {ev["type"]}">{ev["title"]}<span class="time">{ev["time"]}</span></div>'
-            calendar_html += '</div>'
-            
-        calendar_html += '</div></div>'
-        st.markdown(calendar_html, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
