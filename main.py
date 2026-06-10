@@ -103,9 +103,6 @@ st.markdown("""
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
-if "week_offset" not in st.session_state:
-    st.session_state.week_offset = 0
-
 if not st.session_state.authenticated:
     st.markdown("""
         <div class="login-box">
@@ -230,14 +227,12 @@ def main():
             
     st.markdown("<p style='text-align: center; color: #b0b0b0; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px;'>Command Center</p>", unsafe_allow_html=True)
 
-    # REMOVED CMO PERSONA LINK
     quick_links_html = """<div class="quick-links-container">
 <a href="https://www3.usfoods.com/order" target="_blank" class="quick-link-card"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>US Foods</a>
 <a href="https://qbo.intuit.com" target="_blank" class="quick-link-card"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>QuickBooks</a>
 </div>"""
     st.markdown(quick_links_html, unsafe_allow_html=True)
 
-    # REORDERED TABS
     tabs = st.tabs(["📅 Calendar", "🎫 Event Quoter", "🍕 Pizza Builder", "📖 Recipe Margins", "🗄️ The Vault"])
 
     # --- TAB 1: CALENDAR ---
@@ -251,26 +246,11 @@ def main():
         events = []
         is_dummy_data = False
         
-        # Navigation Controls
-        col_prev, col_title, col_next = st.columns([1, 8, 1])
-        with col_prev:
-            if st.button("⬅️ Prev"):
-                st.session_state.week_offset -= 1
-                st.rerun()
-        with col_title:
-            if st.session_state.week_offset == 0:
-                week_title = "Current Week"
-            else:
-                week_title = f"Week of Offset: {st.session_state.week_offset}"
-            st.markdown(f"<h3 style='text-align: center; color: #c5a059; margin-bottom: 0;'>{week_title}</h3>", unsafe_allow_html=True)
-        with col_next:
-            if st.button("Next ➡️"):
-                st.session_state.week_offset += 1
-                st.rerun()
+        st.markdown(f"<h3 style='text-align: center; color: #c5a059; margin-bottom: 0;'>Current Week</h3>", unsafe_allow_html=True)
                 
-        # Get Current Week Dates with Offset
+        # Get Current Week Dates
         try:
-            today = arrow.now('US/Eastern').shift(weeks=st.session_state.week_offset)
+            today = arrow.now('US/Eastern')
             start_of_week = today.shift(days=-today.weekday()).floor('day')
             end_of_week = start_of_week.shift(days=7)
             
@@ -292,15 +272,13 @@ def main():
             if req.status_code == 200 and start_of_week:
                 c = Calendar(req.text)
                 for e in list(c.timeline):
-                    # Bypassing the conversion offset bug by taking the raw string time 
-                    # and turning it into an arrow object without shifting it
                     event_time_naive = arrow.get(e.begin.naive) 
                     
                     if start_of_week.naive <= event_time_naive < end_of_week.naive:
                         events.append({
                             "day": event_time_naive.format("ddd"),
                             "title": e.name,
-                            "time": event_time_naive.format("h:mm A"), # Formats exactly as exported
+                            "time": event_time_naive.format("h:mm A"),
                             "type": "major-event" if "open" in e.name.lower() else "product"
                         })
             else:
@@ -310,23 +288,21 @@ def main():
 
         if is_dummy_data or len(events) == 0:
             if len(events) == 0 and not is_dummy_data:
-                # User has no events this week, don't show dummy data, just empty week
                 pass
             else:
                 is_dummy_data = True
-                if st.session_state.week_offset == 0:
-                    events = [
-                        {"day": "Mon", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
-                        {"day": "Wed", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
-                        {"day": "Wed", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
-                        {"day": "Thu", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
-                    ]
-                    week_days = [
-                        {"day_name": "Mon", "day_num": "8"}, {"day_name": "Tue", "day_num": "9"},
-                        {"day_name": "Wed", "day_num": "10"}, {"day_name": "Thu", "day_num": "11"},
-                        {"day_name": "Fri", "day_num": "12"}, {"day_name": "Sat", "day_num": "13"},
-                        {"day_name": "Sun", "day_num": "14"},
-                    ]
+                events = [
+                    {"day": "Mon", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
+                    {"day": "Wed", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
+                    {"day": "Wed", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
+                    {"day": "Thu", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
+                ]
+                week_days = [
+                    {"day_name": "Mon", "day_num": "8"}, {"day_name": "Tue", "day_num": "9"},
+                    {"day_name": "Wed", "day_num": "10"}, {"day_name": "Thu", "day_num": "11"},
+                    {"day_name": "Fri", "day_num": "12"}, {"day_name": "Sat", "day_num": "13"},
+                    {"day_name": "Sun", "day_num": "14"},
+                ]
 
         # NATIVE UI RENDER 
         calendar_html = """
