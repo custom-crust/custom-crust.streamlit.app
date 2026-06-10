@@ -10,6 +10,7 @@ from fpdf import FPDF
 try:
     import requests
     from ics import Calendar
+    import arrow
     HAS_CALENDAR_LIBS = True
 except ImportError:
     HAS_CALENDAR_LIBS = False
@@ -368,25 +369,44 @@ def main():
         st.write("##")
         
         if not HAS_CALENDAR_LIBS:
-            st.error("⚠️ ACTION REQUIRED: To load the live calendar directly on this page, open your terminal and run: `pip install ics requests`")
+            st.error("⚠️ ACTION REQUIRED: To load the live calendar directly on this page, open your terminal and run: `pip install ics requests arrow`")
         
         ics_link = OUTLOOK_CALENDAR_LINK
         events = []
         is_dummy_data = False
         
+        # Get Current Week Dates
+        try:
+            today = arrow.now('US/Eastern')
+            start_of_week = today.shift(days=-today.weekday()).floor('day')
+            end_of_week = start_of_week.shift(days=7)
+            
+            week_days = []
+            for i in range(7):
+                day_obj = start_of_week.shift(days=i)
+                week_days.append({
+                    "day_name": day_obj.format("ddd"),
+                    "day_num": day_obj.format("D")
+                })
+        except:
+            week_days = [{"day_name": d, "day_num": ""} for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
+            start_of_week = None
+            end_of_week = None
+        
         try:
             # Fetch the raw calendar data
             req = requests.get(ics_link)
-            if req.status_code == 200:
+            if req.status_code == 200 and start_of_week:
                 c = Calendar(req.text)
                 for e in list(c.timeline):
-                    events.append({
-                        "day": e.begin.format("ddd"),
-                        "num": e.begin.format("D"),
-                        "title": e.name,
-                        "time": e.begin.format("h:mm A"),
-                        "type": "major-event" if "open" in e.name.lower() else "product"
-                    })
+                    event_time = e.begin.to('US/Eastern')
+                    if start_of_week <= event_time < end_of_week:
+                        events.append({
+                            "day": event_time.format("ddd"),
+                            "title": e.name,
+                            "time": event_time.format("h:mm A"),
+                            "type": "major-event" if "open" in e.name.lower() else "product"
+                        })
             else:
                 is_dummy_data = True
         except Exception as e:
@@ -395,10 +415,20 @@ def main():
         if is_dummy_data or len(events) == 0:
             is_dummy_data = True
             events = [
-                {"day": "Mon", "num": "8", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
-                {"day": "Wed", "num": "10", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
-                {"day": "Wed", "num": "10", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
-                {"day": "Thu", "num": "11", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
+                {"day": "Mon", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
+                {"day": "Wed", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
+                {"day": "Wed", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
+                {"day": "Thu", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
+            ]
+            # Override week_days for dummy data to match the screenshot
+            week_days = [
+                {"day_name": "Mon", "day_num": "8"},
+                {"day_name": "Tue", "day_num": "9"},
+                {"day_name": "Wed", "day_num": "10"},
+                {"day_name": "Thu", "day_num": "11"},
+                {"day_name": "Fri", "day_num": "12"},
+                {"day_name": "Sat", "day_num": "13"},
+                {"day_name": "Sun", "day_num": "14"},
             ]
 
         # NATIVE UI RENDER (No Iframes)
@@ -427,13 +457,12 @@ def main():
 
         calendar_html += '<div class="weekly-calendar-grid">'
 
-        days_of_week = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-        for day in days_of_week:
-            day_events = [e for e in events if e["day"] == day]
+        for wd in week_days:
+            day_name = wd["day_name"]
+            day_num = wd["day_num"]
+            day_events = [e for e in events if e["day"] == day_name]
             
-            day_num = day_events[0]["num"] if day_events else ""
-            
-            calendar_html += f'<div class="calendar-day"><div class="day-header">{day} <span class="day-number">{day_num}</span></div>'
+            calendar_html += f'<div class="calendar-day"><div class="day-header">{day_name} <span class="day-number">{day_num}</span></div>'
             for ev in day_events:
                 calendar_html += f'<div class="event-card {ev["type"]}">{ev["title"]}<span class="time">{ev["time"]}</span></div>'
             calendar_html += '</div>'
