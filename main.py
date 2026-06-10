@@ -23,7 +23,7 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1yqbd35J140KWT7ui8Ggqn68_OfG
 ACCESS_PIN = "CCK2026!"
 
 # *** OUTLOOK CALENDAR LINK ***
-OUTLOOK_CALENDAR_LINK = "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/26efbfea-6ffe-4049-b3dc-4f9ac91ac1fc/cid-2BEC859542F27B9D/calendar.ics"
+OUTLOOK_CALENDAR_LINK = "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/c3d24d5f-cd14-4664-be6c-a0576fadb1bd/cid-2BEC859542F27B9D/calendar.ics"
 
 # --- 2. LUXURY CSS (Matching the CCK Website) ---
 st.markdown("""
