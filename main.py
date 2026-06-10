@@ -2,8 +2,17 @@ import streamlit as st
 import pandas as pd
 import math
 import os
+import datetime
 from streamlit_gsheets import GSheetsConnection
-from fpdf import FPDF  # PDF Generation
+from fpdf import FPDF  
+
+# Try to load the calendar parsers
+try:
+    import requests
+    from ics import Calendar
+    HAS_CALENDAR_LIBS = True
+except ImportError:
+    HAS_CALENDAR_LIBS = False
 
 # --- 1. CONFIGURATION & SECURITY ---
 st.set_page_config(page_title="CCK Command Center", layout="wide", page_icon="🍕")
@@ -13,8 +22,7 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1yqbd35J140KWT7ui8Ggqn68_OfG
 ACCESS_PIN = "CCK2026!"
 
 # *** OUTLOOK CALENDAR LINK ***
-# Note: 'index.html' was changed to 'calendar.html' to bypass Microsoft's iframe block
-OUTLOOK_CALENDAR_LINK = "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/26efbfea-6ffe-4049-b3dc-4f9ac91ac1fc/cid-2BEC859542F27B9D/calendar.html"
+OUTLOOK_CALENDAR_LINK = "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/26efbfea-6ffe-4049-b3dc-4f9ac91ac1fc/cid-2BEC859542F27B9D/index.html"
 
 # --- 2. LUXURY CSS (Matching the CCK Website) ---
 st.markdown("""
@@ -86,8 +94,6 @@ st.markdown("""
     
     /* Form Elements */
     div[data-testid="stForm"] {background-color: #1a1a1a; border: 1px solid #333;}
-    
-    /* Hide empty dataframe index */
     .stDataFrame {border: 1px solid rgba(197, 160, 89, 0.3) !important; border-radius: 8px !important;}
     </style>
 """, unsafe_allow_html=True)
@@ -130,7 +136,6 @@ ingredients_data = pd.DataFrame([
 ing_dict = {row['Ingredient'].strip(): float(row['Cost']) for index, row in ingredients_data.iterrows()}
 
 recipes_data = pd.DataFrame([
-    # ADULT 14" PIES
     ["The Plain Jane 14\"", "14\" Dough Ball", 1], ["The Plain Jane 14\"", "House Pizza Sauce", 8], ["The Plain Jane 14\"", "Grande Mozzarella", 13],
     ["The Premium Pepperoni 14\"", "14\" Dough Ball", 1], ["The Premium Pepperoni 14\"", "House Pizza Sauce", 8], ["The Premium Pepperoni 14\"", "Grande Mozzarella", 12], ["The Premium Pepperoni 14\"", "Premium Sliced Pepperoni", 4.5],
     ["The Carnivore 14\"", "14\" Dough Ball", 1], ["The Carnivore 14\"", "House Pizza Sauce", 7], ["The Carnivore 14\"", "Grande Mozzarella", 10], ["The Carnivore 14\"", "Premium Sliced Pepperoni", 3], ["The Carnivore 14\"", "Fontanini Sausage", 4], ["The Carnivore 14\"", "Candied Bacon", 3], ["The Carnivore 14\"", "Mike's Hot Honey", 1],
@@ -138,42 +143,22 @@ recipes_data = pd.DataFrame([
     ["The Buffalo Soldier 14\"", "14\" Dough Ball", 1], ["The Buffalo Soldier 14\"", "Buffalo Sauce", 5], ["The Buffalo Soldier 14\"", "Grande Mozzarella", 9], ["The Buffalo Soldier 14\"", "Diced Chicken", 7], ["The Buffalo Soldier 14\"", "Blue Cheese Crumbles", 2],
     ["Custom 14\" (Standard Toppings)", "14\" Dough Ball", 1], ["Custom 14\" (Standard Toppings)", "House Pizza Sauce", 8], ["Custom 14\" (Standard Toppings)", "Grande Mozzarella", 12], ["Custom 14\" (Standard Toppings)", "Green Peppers", 3], ["Custom 14\" (Standard Toppings)", "Onion", 3],
     ["Custom 14\" (Premium Toppings)", "14\" Dough Ball", 1], ["Custom 14\" (Premium Toppings)", "House Pizza Sauce", 8], ["Custom 14\" (Premium Toppings)", "Grande Mozzarella", 12], ["Custom 14\" (Premium Toppings)", "Premium Sliced Pepperoni", 3], ["Custom 14\" (Premium Toppings)", "Ricotta Cheese", 3],
-    
-    # KIDS 12" PIES
     ["Kids Cheese 12\"", "12\" Dough Ball", 1], ["Kids Cheese 12\"", "House Pizza Sauce", 4.5], ["Kids Cheese 12\"", "Grande Mozzarella", 7],
     ["Kids Pepperoni 12\"", "12\" Dough Ball", 1], ["Kids Pepperoni 12\"", "House Pizza Sauce", 4.5], ["Kids Pepperoni 12\"", "Grande Mozzarella", 7], ["Kids Pepperoni 12\"", "Premium Sliced Pepperoni", 1.5],
     ["Kids 2-Topping 12\"", "12\" Dough Ball", 1], ["Kids 2-Topping 12\"", "House Pizza Sauce", 4.5], ["Kids 2-Topping 12\"", "Grande Mozzarella", 7], ["Kids 2-Topping 12\"", "Green Peppers", 1], ["Kids 2-Topping 12\"", "Onion", 1]
 ], columns=["Recipe", "Ingredient", "Ounces"])
 
 menu_prices = {
-    "The Plain Jane 14\"": 17.00, 
-    "The Premium Pepperoni 14\"": 23.00, 
-    "The Carnivore 14\"": 26.00, 
-    "The Bianco Veggie 14\"": 24.00, 
-    "The Buffalo Soldier 14\"": 24.00,
-    "Custom 14\" (Standard Toppings)": 24.00,
-    "Custom 14\" (Premium Toppings)": 28.00,
-    "Kids Cheese 12\"": 10.00,
-    "Kids Pepperoni 12\"": 12.00,
-    "Kids 2-Topping 12\"": 14.00
+    "The Plain Jane 14\"": 17.00, "The Premium Pepperoni 14\"": 23.00, "The Carnivore 14\"": 26.00, 
+    "The Bianco Veggie 14\"": 24.00, "The Buffalo Soldier 14\"": 24.00, "Custom 14\" (Standard Toppings)": 24.00,
+    "Custom 14\" (Premium Toppings)": 28.00, "Kids Cheese 12\"": 10.00, "Kids Pepperoni 12\"": 12.00, "Kids 2-Topping 12\"": 14.00
 }
 
 # --- 4. DATA HELPERS ---
-def get_recipe_cost(recipe_name):
-    df = recipes_data[recipes_data['Recipe'] == recipe_name].copy()
-    df['match_ing'] = df['Ingredient'].str.strip()
-    safe_ing_df = ingredients_data.copy()
-    safe_ing_df['match_ing'] = safe_ing_df['Ingredient'].str.strip()
-    merged = pd.merge(df, safe_ing_df[['match_ing', 'Cost']], on="match_ing", how="left")
-    merged['Cost'] = merged['Cost'].fillna(0.0)
-    merged['Line Cost'] = merged['Ounces'] * merged['Cost']
-    return merged['Line Cost'].sum()
-
 def load_gsheets():
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        vault = conn.read(spreadsheet=SHEET_URL, worksheet="Vault_Index", ttl=600)
-        return vault
+        return conn.read(spreadsheet=SHEET_URL, worksheet="Vault_Index", ttl=600)
     except: 
         return pd.DataFrame()
 
@@ -181,162 +166,70 @@ def load_gsheets():
 def generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier):
     pdf = FPDF()
     pdf.add_page()
+    gold, black, gray = (197, 160, 89), (30, 30, 30), (100, 100, 100)
     
-    # Brand Colors
-    gold = (197, 160, 89)
-    black = (30, 30, 30)
-    gray = (100, 100, 100)
-    
-    # --- LOGO INJECTION ---
     logo_path = "logo.png" if os.path.exists("logo.png") else ("CCK_Logo.png" if os.path.exists("CCK_Logo.png") else None)
-    
     if logo_path:
-        logo_width = 30
-        x_center = (pdf.w - logo_width) / 2
-        pdf.image(logo_path, x=x_center, y=10, w=logo_width)
+        pdf.image(logo_path, x=(pdf.w - 30) / 2, y=10, w=30)
         pdf.ln(35) 
     else:
         pdf.ln(15)
+        
+    pdf.set_font("Arial", 'B', 24); pdf.set_text_color(*gold); pdf.cell(0, 12, "CUSTOM CRUST KITCHEN", ln=True, align='C')
+    pdf.set_font("Arial", 'B', 12); pdf.set_text_color(*gray); pdf.cell(0, 8, "CATERING ESTIMATE", ln=True, align='C')
+    pdf.line(10, pdf.get_y() + 5, 200, pdf.get_y() + 5); pdf.ln(10)
     
-    # Header
-    pdf.set_font("Arial", 'B', 24)
-    pdf.set_text_color(*gold)
-    pdf.cell(0, 12, "CUSTOM CRUST KITCHEN", ln=True, align='C')
-    pdf.set_font("Arial", 'B', 12)
-    pdf.set_text_color(*gray)
-    pdf.cell(0, 8, "CATERING ESTIMATE", ln=True, align='C')
-    pdf.line(10, pdf.get_y() + 5, 200, pdf.get_y() + 5)
-    pdf.ln(10)
+    pdf.set_font("Arial", 'B', 12); pdf.set_text_color(*black); pdf.cell(0, 8, "EVENT DETAILS", ln=True)
+    pdf.set_font("Arial", '', 11); pdf.set_text_color(*gray)
+    pdf.cell(0, 6, f"Client: {client_name}", ln=True); pdf.cell(0, 6, f"Date: {event_date}", ln=True)
+    pdf.cell(0, 6, f"Location: {event_address}", ln=True); pdf.cell(0, 6, f"Event Notes: {event_desc}", ln=True); pdf.ln(10)
     
-    # Client Info Box
-    pdf.set_font("Arial", 'B', 12)
-    pdf.set_text_color(*black)
-    pdf.cell(0, 8, "EVENT DETAILS", ln=True)
-    pdf.set_font("Arial", '', 11)
-    pdf.set_text_color(*gray)
-    pdf.cell(0, 6, f"Client: {client_name}", ln=True)
-    pdf.cell(0, 6, f"Date: {event_date}", ln=True)
-    pdf.cell(0, 6, f"Location: {event_address}", ln=True)
-    pdf.cell(0, 6, f"Event Notes: {event_desc}", ln=True)
-    pdf.ln(10)
-    
-    # Order Summary Header
-    pdf.set_font("Arial", 'B', 14)
-    pdf.set_text_color(*black)
-    pdf.cell(0, 10, "ORDER SUMMARY", ln=True)
-    
-    pdf.set_font("Arial", '', 12)
-    pdf.set_text_color(*black)
-    
-    # Line Items (Packages + Beverages)
+    pdf.set_font("Arial", 'B', 14); pdf.set_text_color(*black); pdf.cell(0, 10, "ORDER SUMMARY", ln=True)
+    pdf.set_font("Arial", '', 12); pdf.set_text_color(*black)
     for item in printable_items:
-        pdf.cell(140, 8, item["desc"], 0, 0)
-        pdf.cell(50, 8, f"${item['total']:,.2f}", 0, 1, 'R')
-            
+        pdf.cell(140, 8, item["desc"], 0, 0); pdf.cell(50, 8, f"${item['total']:,.2f}", 0, 1, 'R')
     pdf.ln(8)
     
-    # --- NEW: MENU NOTES ---
     if len(printable_items) > 0:
-        pdf.set_font("Arial", 'B', 11)
-        pdf.set_text_color(*black)
-        pdf.cell(0, 8, "PACKAGE DETAILS & EXCLUSIONS:", ln=True)
-        pdf.set_font("Arial", '', 10)
-        pdf.set_text_color(*gray)
-        
-        if "Classic" in adult_tier:
-            pdf.cell(0, 6, "- Classic Package Includes: The Plain Jane, The Premium Pepperoni, & The Bianco Veggie.", ln=True)
-        else:
-            pdf.cell(0, 6, "- Premium Package Includes: Full Signature Pizza Menu.", ln=True)
-            
-        pdf.cell(0, 6, "- Exclusions: Calzones are exclusively for retail service and are not included in catering.", ln=True)
-        pdf.ln(8)
+        pdf.set_font("Arial", 'B', 11); pdf.set_text_color(*black); pdf.cell(0, 8, "PACKAGE DETAILS & EXCLUSIONS:", ln=True)
+        pdf.set_font("Arial", '', 10); pdf.set_text_color(*gray)
+        if "Classic" in adult_tier: pdf.cell(0, 6, "- Classic Package Includes: The Plain Jane, The Premium Pepperoni, & The Bianco Veggie.", ln=True)
+        else: pdf.cell(0, 6, "- Premium Package Includes: Full Signature Pizza Menu.", ln=True)
+        pdf.cell(0, 6, "- Exclusions: Calzones are exclusively for retail service and are not included in catering.", ln=True); pdf.ln(8)
     
-    # Financials Header
-    pdf.set_font("Arial", 'B', 14)
-    pdf.set_text_color(*black)
-    pdf.cell(0, 10, "FINANCIALS", ln=True)
-    pdf.set_font("Arial", '', 12)
-    
-    # Subtotals
-    pdf.cell(140, 8, "Food & Beverage Subtotal", 0, 0)
-    pdf.cell(50, 8, f"${gross_subtotal:,.2f}", 0, 1, 'R')
-    
+    pdf.set_font("Arial", 'B', 14); pdf.set_text_color(*black); pdf.cell(0, 10, "FINANCIALS", ln=True); pdf.set_font("Arial", '', 12)
+    pdf.cell(140, 8, "Food & Beverage Subtotal", 0, 0); pdf.cell(50, 8, f"${gross_subtotal:,.2f}", 0, 1, 'R')
     if discount_amount > 0:
-        pdf.set_text_color(200, 50, 50) # Red for discount
-        pdf.cell(140, 8, f"Discount ({discount_pct}%)", 0, 0)
-        pdf.cell(50, 8, f"-${discount_amount:,.2f}", 0, 1, 'R')
-        pdf.set_text_color(*black) # Reset to black
+        pdf.set_text_color(200, 50, 50); pdf.cell(140, 8, f"Discount ({discount_pct}%)", 0, 0); pdf.cell(50, 8, f"-${discount_amount:,.2f}", 0, 1, 'R'); pdf.set_text_color(*black)
+    pdf.cell(140, 8, "Setup / Travel Fee", 0, 0); pdf.cell(50, 8, f"${event_fee:,.2f}", 0, 1, 'R')
+    if tax_amount > 0: pdf.cell(140, 8, "MA Meals Tax (7.0%)", 0, 0); pdf.cell(50, 8, f"${tax_amount:,.2f}", 0, 1, 'R')
+    if cc_fee_amount > 0: pdf.cell(140, 8, "Credit Card Fee (2.29%)", 0, 0); pdf.cell(50, 8, f"${cc_fee_amount:,.2f}", 0, 1, 'R')
+    pdf.line(10, pdf.get_y() + 2, 200, pdf.get_y() + 2); pdf.ln(5)
     
-    pdf.cell(140, 8, "Setup / Travel Fee", 0, 0)
-    pdf.cell(50, 8, f"${event_fee:,.2f}", 0, 1, 'R')
+    pdf.set_font("Arial", 'B', 16); pdf.set_text_color(*gold)
+    pdf.cell(140, 10, "ESTIMATED TOTAL", 0, 0); pdf.cell(50, 10, f"${final_quote:,.2f}", 0, 1, 'R')
     
-    if tax_amount > 0:
-        pdf.cell(140, 8, "MA Meals Tax (7.0%)", 0, 0)
-        pdf.cell(50, 8, f"${tax_amount:,.2f}", 0, 1, 'R')
-        
-    if cc_fee_amount > 0:
-        pdf.cell(140, 8, "Credit Card Fee (2.29%)", 0, 0)
-        pdf.cell(50, 8, f"${cc_fee_amount:,.2f}", 0, 1, 'R')
-        
-    pdf.line(10, pdf.get_y() + 2, 200, pdf.get_y() + 2)
-    pdf.ln(5)
-    
-    # Total
-    pdf.set_font("Arial", 'B', 16)
-    pdf.set_text_color(*gold)
-    pdf.cell(140, 10, "ESTIMATED TOTAL", 0, 0)
-    pdf.cell(50, 10, f"${final_quote:,.2f}", 0, 1, 'R')
-    
-    # Footer
-    pdf.ln(25)
-    pdf.set_font("Arial", 'I', 10)
-    pdf.set_text_color(*gray)
+    pdf.ln(25); pdf.set_font("Arial", 'I', 10); pdf.set_text_color(*gray)
     pdf.multi_cell(0, 6, "Thank you for choosing Custom Crust Kitchen! This document is an estimate to give you an accurate idea of costs. Final pricing may adjust based on exact headcount, menu alterations, or specific event requirements.", align='C')
-    
-    try:
-        return bytes(pdf.output()) 
-    except:
-        return pdf.output(dest='S').encode('latin-1') 
+    try: return bytes(pdf.output()) 
+    except: return pdf.output(dest='S').encode('latin-1') 
 
 # --- 6. MAIN APP ---
 def main():
     vault_df = load_gsheets()
 
-    # Dynamic Centered Logo for the Dashboard
     c_left, c_logo, c_right = st.columns([5, 1, 5])
     with c_logo:
-        if os.path.exists("CCK_Logo.png"):
-            st.image("CCK_Logo.png", use_container_width=True)
-        elif os.path.exists("logo.png"):
-            st.image("logo.png", use_container_width=True)
-        else:
-            st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0;'>CCK</h1>", unsafe_allow_html=True)
+        if os.path.exists("CCK_Logo.png"): st.image("CCK_Logo.png", use_container_width=True)
+        elif os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
+        else: st.markdown("<h1 style='text-align: center; font-size: 3.5rem; margin-bottom: 0;'>CCK</h1>", unsafe_allow_html=True)
             
     st.markdown("<p style='text-align: center; color: #b0b0b0; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 40px;'>Command Center</p>", unsafe_allow_html=True)
 
     quick_links_html = """<div class="quick-links-container">
-<a href="https://www3.usfoods.com/order" target="_blank" class="quick-link-card">
-<svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
-<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-<line x1="12" y1="22.08" x2="12" y2="12"></line>
-</svg>
-US Foods
-</a>
-<a href="https://gemini.google.com/app/7e448fe20a7cd3a5" target="_blank" class="quick-link-card">
-<svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-<path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-</svg>
-CMO Persona
-</a>
-<a href="https://qbo.intuit.com" target="_blank" class="quick-link-card">
-<svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-<rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
-<line x1="8" y1="21" x2="16" y2="21"></line>
-<line x1="12" y1="17" x2="12" y2="21"></line>
-</svg>
-QuickBooks
-</a>
+<a href="https://www3.usfoods.com/order" target="_blank" class="quick-link-card"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>US Foods</a>
+<a href="https://gemini.google.com/app/7e448fe20a7cd3a5" target="_blank" class="quick-link-card"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>CMO Persona</a>
+<a href="https://qbo.intuit.com" target="_blank" class="quick-link-card"><svg width="35" height="35" viewBox="0 0 24 24" fill="none" stroke="#c5a059" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>QuickBooks</a>
 </div>"""
     st.markdown(quick_links_html, unsafe_allow_html=True)
 
@@ -346,247 +239,119 @@ QuickBooks
     with tabs[0]:
         st.write("##")
         c_in, c_out = st.columns([1, 1.5], gap="large")
-        
         with c_in:
             st.markdown("<h3 style='margin-bottom: 20px;'>1. Event Details</h3>", unsafe_allow_html=True)
-            
             c_client1, c_client2 = st.columns(2)
             client_name = c_client1.text_input("Client Name *", placeholder="e.g. Bruno Kreusch")
             event_date = c_client2.text_input("Event Date *", placeholder="e.g. June 18th")
-            
             c_client3, c_client4 = st.columns(2)
             event_address = c_client3.text_input("Event Address *", placeholder="e.g. 123 Main St, Saugus, MA")
             event_desc = c_client4.text_input("Event Notes/Type *", placeholder="e.g. Birthday Buffet in Driveway")
-            st.write("---")
             
             st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>2. Guest Count & Logistics</h3>", unsafe_allow_html=True)
             c_g, c_k, c_f = st.columns(3)
             adults = c_g.number_input("Est. Adults", min_value=1, value=40, step=5)
             kids = c_k.number_input("Est. Kids", min_value=0, value=10, step=5)
             event_fee = c_f.number_input("Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
-            
-            adult_pies = math.ceil((adults * 3) / 6)
-            kid_pies = math.ceil((kids * 2) / 8) if kids > 0 else 0
-            
+            adult_pies, kid_pies = math.ceil((adults * 3) / 6), math.ceil((kids * 2) / 8) if kids > 0 else 0
             st.info(f"💡 **Prep Guide:** You will need to prep ~**{adult_pies} adult pies** (14\") and **{kid_pies} kids pies** (12\").")
             
             st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>3. Food Packages (Per Person)</h3>", unsafe_allow_html=True)
-            
             c_food1, c_food2 = st.columns(2)
-            adult_tier = c_food1.selectbox("Adult Package", ["Classic ($17/head)", "Premium ($22/head)"], help="Classic: Plain Jane, Pepperoni, Veggie. Premium: Full Menu.")
-            kid_tier = c_food2.selectbox("Kids Package", ["Standard ($10/head)"], help="Includes Cheese and Pepperoni.")
+            adult_tier = c_food1.selectbox("Adult Package", ["Classic ($17/head)", "Premium ($22/head)"])
+            kid_tier = c_food2.selectbox("Kids Package", ["Standard ($10/head)"])
             
-            # --- BEVERAGE PACKAGES ---
-            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>4. Beverages</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>4. Beverages & Fees</h3>", unsafe_allow_html=True)
             c_b1, c_b2 = st.columns(2)
-            add_adult_bevs = c_b1.checkbox(f"Adult Bev Package ($5.00/adult)", value=True, help="Assorted Soda & Water. Assumes ~2.5 drinks per adult.")
-            add_kid_bevs = c_b2.checkbox(f"Kids Bev Package ($3.00/kid)", value=True, help="Bottled Apple Juice & Water. Assumes ~1.5 drinks per child.")
-
-            # --- DISCOUNTS & FEES ---
-            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>5. Taxes, Discounts & Fees</h3>", unsafe_allow_html=True)
+            add_adult_bevs = c_b1.checkbox(f"Adult Bev Package ($5.00/adult)", value=True)
+            add_kid_bevs = c_b2.checkbox(f"Kids Bev Package ($3.00/kid)", value=True)
             c_t, c_d, c_c = st.columns(3)
-            apply_tax = c_t.checkbox("Add MA Meals Tax (7.0%)", value=True)
-            discount_pct = c_d.number_input("Discount (%)", min_value=0.0, max_value=100.0, value=0.0, step=5.0, help="Applied to Food & Bev subtotal")
-            apply_cc = c_c.checkbox("Add CC Fee (2.29%)", value=False)
+            apply_tax = c_t.checkbox("Add MA Meals Tax", value=True)
+            apply_cc = c_c.checkbox("Add CC Fee", value=False)
+            discount_pct = c_d.number_input("Discount (%)", value=0.0, step=5.0)
 
         with c_out:
-            printable_items = []
-            order_lines = ""
-            
-            # -- REVENUE MATH --
+            printable_items, order_lines = [], ""
             adult_food_price = 17.00 if "Classic" in adult_tier else 22.00
             kid_food_price = 10.00
-            
             food_revenue = (adults * adult_food_price) + (kids * kid_food_price)
             
             if adults > 0:
-                order_lines += f'<div class="quote-row"><span>Adult Food Pkg - {adult_tier.split(" ")[0]} ({adults} Guests)</span> <span>${(adults * adult_food_price):,.2f}</span></div>\n'
-                printable_items.append({"desc": f"Adult Food Package - {adult_tier.split(' ')[0]} ({adults} Guests)", "total": (adults * adult_food_price)})
-                
+                order_lines += f'<div class="quote-row"><span>Adult Food Pkg</span> <span>${(adults * adult_food_price):,.2f}</span></div>\n'
+                printable_items.append({"desc": f"Adult Food Package", "total": (adults * adult_food_price)})
             if kids > 0:
-                order_lines += f'<div class="quote-row"><span>Kids Food Pkg ({kids} Guests)</span> <span>${(kids * kid_food_price):,.2f}</span></div>\n'
-                printable_items.append({"desc": f"Kids Food Package ({kids} Guests)", "total": (kids * kid_food_price)})
+                order_lines += f'<div class="quote-row"><span>Kids Food Pkg</span> <span>${(kids * kid_food_price):,.2f}</span></div>\n'
+                printable_items.append({"desc": f"Kids Food Package", "total": (kids * kid_food_price)})
 
-            beverage_revenue = 0.0
-            beverage_cost = 0.0
-            
+            beverage_revenue, beverage_cost = 0.0, 0.0
             if add_adult_bevs and adults > 0:
-                adult_bev_total = adults * 5.00
-                beverage_revenue += adult_bev_total
-                beverage_cost += adults * 1.50 
-                
-                order_lines += f'<div class="quote-row"><span>Adult Bev Pkg ({adults} Guests)</span> <span>${adult_bev_total:,.2f}</span></div>\n'
-                printable_items.append({"desc": f"Adult Beverage Package ({adults} Guests)", "total": adult_bev_total})
-                
+                beverage_revenue += adults * 5.00; beverage_cost += adults * 1.50 
+                order_lines += f'<div class="quote-row"><span>Adult Bev Pkg</span> <span>${adults * 5.00:,.2f}</span></div>\n'
+                printable_items.append({"desc": f"Adult Beverage Package", "total": adults * 5.00})
             if add_kid_bevs and kids > 0:
-                kid_bev_total = kids * 3.00
-                beverage_revenue += kid_bev_total
-                beverage_cost += kids * 1.00 
-                
-                order_lines += f'<div class="quote-row"><span>Kids Bev Pkg ({kids} Guests)</span> <span>${kid_bev_total:,.2f}</span></div>\n'
-                printable_items.append({"desc": f"Kids Beverage Package ({kids} Guests)", "total": kid_bev_total})
+                beverage_revenue += kids * 3.00; beverage_cost += kids * 1.00 
+                order_lines += f'<div class="quote-row"><span>Kids Bev Pkg</span> <span>${kids * 3.00:,.2f}</span></div>\n'
+                printable_items.append({"desc": f"Kids Beverage Package", "total": kids * 3.00})
 
-            if len(printable_items) == 0:
-                order_lines = '<div class="quote-row"><span style="color: #666; font-style: italic;">No packages selected.</span> <span>$0.00</span></div>\n'
-                
-            # -- INTERNAL COST ESTIMATOR --
-            est_food_cost = (adult_pies * 4.00) + (kid_pies * 2.00)
-            total_internal_cost = est_food_cost + beverage_cost
-
-            # -- FINANCIAL MATH --
             gross_subtotal = food_revenue + beverage_revenue
             discount_amount = gross_subtotal * (discount_pct / 100.0)
-            net_subtotal = gross_subtotal - discount_amount
-            
-            taxable_amount = net_subtotal + event_fee
+            taxable_amount = (gross_subtotal - discount_amount) + event_fee
             tax_amount = (taxable_amount * 0.07) if apply_tax else 0.0
-            
-            subtotal_with_tax = taxable_amount + tax_amount
-            cc_fee_amount = (subtotal_with_tax * 0.0229) if apply_cc else 0.0
-            
-            final_quote = subtotal_with_tax + cc_fee_amount
-            
-            net_revenue = net_subtotal + event_fee
-            profit = net_revenue - total_internal_cost
-            margin = (profit / net_revenue) * 100 if net_revenue > 0 else 0.0
+            cc_fee_amount = ((taxable_amount + tax_amount) * 0.0229) if apply_cc else 0.0
+            final_quote = taxable_amount + tax_amount + cc_fee_amount
+            total_internal_cost = ((adult_pies * 4.00) + (kid_pies * 2.00)) + beverage_cost
+            profit = taxable_amount - total_internal_cost
+            margin = (profit / taxable_amount) * 100 if taxable_amount > 0 else 0.0
 
-            # -- HTML RENDERING --
-            quote_html = f"""<div class="quote-box">
-<div class="quote-header">Custom Catering Proposal</div>
-<div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">ORDER SUMMARY</div>
-{order_lines}
-<div style="color: #b0b0b0; margin-top: 25px; margin-bottom: 15px; font-weight: 600; font-family: 'Montserrat';">FINANCIALS</div>
+            quote_html = f"""<div class="quote-box"><div class="quote-header">Custom Catering Proposal</div>
+<div style="color: #b0b0b0; margin-bottom: 15px; font-weight: 600;">ORDER SUMMARY</div>{order_lines}
 <div class="quote-row"><span>Food & Beverage Subtotal</span> <span>${gross_subtotal:,.2f}</span></div>"""
-
-            if discount_amount > 0:
-                quote_html += f'\n<div class="quote-row" style="color: #da3633;"><span>Discount ({discount_pct}%)</span> <span>-${discount_amount:,.2f}</span></div>'
-
+            if discount_amount > 0: quote_html += f'\n<div class="quote-row" style="color: #da3633;"><span>Discount</span> <span>-${discount_amount:,.2f}</span></div>'
             quote_html += f'\n<div class="quote-row"><span>Setup / Travel Fee</span> <span>${event_fee:,.2f}</span></div>'
-
-            if apply_tax:
-                quote_html += f'\n<div class="quote-row"><span>MA Meals Tax (7.0%)</span> <span>${tax_amount:,.2f}</span></div>'
-            if apply_cc:
-                quote_html += f'\n<div class="quote-row"><span>Credit Card Fee (2.29%)</span> <span>${cc_fee_amount:,.2f}</span></div>'
-
+            if apply_tax: quote_html += f'\n<div class="quote-row"><span>MA Meals Tax (7.0%)</span> <span>${tax_amount:,.2f}</span></div>'
+            if apply_cc: quote_html += f'\n<div class="quote-row"><span>Credit Card Fee (2.29%)</span> <span>${cc_fee_amount:,.2f}</span></div>'
             quote_html += f"""\n<div class="quote-row total"><span>Total Client Quote</span> <span>${final_quote:,.2f}</span></div>
 <div style="margin-top: 20px; padding: 15px; background-color: #121212; border-radius: 6px; border-left: 4px solid #c5a059;">
-<div class="quote-row" style="margin-bottom: 5px;"><span>Internal Raw Cost (Food & Bev Est.)</span> <span>${total_internal_cost:,.2f}</span></div>
-<div class="quote-row profit" style="margin-bottom: 0;"><span>Projected Net Profit</span> <span>${profit:,.2f} ({margin:.1f}%)</span></div>
-</div>
-</div>"""
+<div class="quote-row profit" style="margin-bottom: 0;"><span>Projected Net Profit</span> <span>${profit:,.2f} ({margin:.1f}%)</span></div></div></div>"""
             st.markdown(quote_html, unsafe_allow_html=True)
             
-            # --- PDF DOWNLOAD VALIDATION LOGIC ---
-            required_fields_filled = bool(client_name and event_date and event_address and event_desc)
-            
-            if len(printable_items) > 0:
-                st.write("")
-                if required_fields_filled:
-                    pdf_bytes = generate_pdf_quote(
-                        client_name, event_date, event_address, event_desc,
-                        printable_items, event_fee, 
-                        gross_subtotal, discount_amount, discount_pct, tax_amount, 
-                        cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier
-                    )
-                    
-                    st.download_button(
-                        label="📄 Download Official PDF Estimate",
-                        data=pdf_bytes,
-                        file_name=f"CCK_Estimate_{client_name.replace(' ', '_')}.pdf",
-                        mime="application/pdf",
-                        use_container_width=True
-                    )
-                else:
-                    st.warning("⚠️ Please fill out all required Event Details (Name, Date, Address, Notes) to unlock the PDF download.")
+            if len(printable_items) > 0 and client_name and event_date and event_address:
+                pdf_bytes = generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier)
+                st.download_button(label="📄 Download Official PDF", data=pdf_bytes, file_name=f"CCK_Estimate_{client_name}.pdf", mime="application/pdf", use_container_width=True)
 
     # --- TAB 2: PIZZA BUILDER ---
     with tabs[1]:
         st.write("##")
-        st.markdown("<p style='color: #b0b0b0; margin-bottom: 30px;'>Select your crust and layer on ingredients by the ounce to engineer your target 80% margin.</p>", unsafe_allow_html=True)
-        
         c1, c2 = st.columns([1.2, 1], gap="large")
-        
         with c1:
-            st.markdown("### The Canvas")
             base = st.selectbox("Crust Base", ["10\" Dough Ball", "12\" Dough Ball", "14\" Dough Ball"])
-            base_cost = ing_dict.get(base, 0.0)
-            
-            st.markdown("### The Sauce")
-            sauce = st.selectbox("Sauce Type", ["None", "House Pizza Sauce", "Buffalo Sauce"])
-            sauce_oz = st.number_input("Sauce Amount (oz)", min_value=0.0, value=8.0, step=0.5) if sauce != "None" else 0.0
-            
-            st.markdown("### The Cheese")
-            cheeses = st.multiselect("Select Cheeses", ["Grande Mozzarella", "Fresh Mozzarella", "Ricotta Cheese", "Blue Cheese Crumbles"])
-            cheese_oz = {}
-            for ch in cheeses:
-                cheese_oz[ch] = st.number_input(f"{ch} (oz)", min_value=0.0, value=10.0, step=0.5, key=f"ch_{ch}")
-                
-            st.markdown("### The Toppings")
-            toppings = st.multiselect("Select Meats & Veggies", ["Premium Sliced Pepperoni", "Fontanini Sausage", "Candied Bacon", "Diced Ham", "Diced Chicken", "Fresh Tomatoes", "Green Peppers", "Onion", "Black Olives", "Sliced Garlic", "Drained Pineapple", "Mike's Hot Honey"])
-            topping_oz = {}
-            for t in toppings:
-                topping_oz[t] = st.number_input(f"{t} (oz)", min_value=0.0, value=3.0, step=0.5, key=f"t_{t}")
-                
+            sauce = st.selectbox("Sauce", ["None", "House Pizza Sauce", "Buffalo Sauce"])
+            sauce_oz = st.number_input("Sauce Amount (oz)", value=8.0, step=0.5) if sauce != "None" else 0.0
+            cheeses = st.multiselect("Cheeses", ["Grande Mozzarella", "Fresh Mozzarella", "Ricotta Cheese"])
+            cheese_oz = {ch: st.number_input(f"{ch} (oz)", value=10.0, step=0.5) for ch in cheeses}
+            toppings = st.multiselect("Toppings", ["Premium Sliced Pepperoni", "Fontanini Sausage", "Candied Bacon", "Mike's Hot Honey"])
+            topping_oz = {t: st.number_input(f"{t} (oz)", value=3.0, step=0.5) for t in toppings}
         with c2:
-            st.markdown("### Cost Breakdown")
-            total_cost = base_cost
-            breakdown = [{"Ingredient": base, "Ounces": 1.0, "Line Cost": base_cost}]
-            
-            if sauce != "None" and sauce_oz > 0:
-                sc = sauce_oz * ing_dict.get(sauce, 0.0)
-                total_cost += sc
-                breakdown.append({"Ingredient": sauce, "Ounces": sauce_oz, "Line Cost": sc})
-                
-            for ch, oz in cheese_oz.items():
-                c = oz * ing_dict.get(ch, 0.0)
-                total_cost += c
-                breakdown.append({"Ingredient": ch, "Ounces": oz, "Line Cost": c})
-                
-            for t, oz in topping_oz.items():
-                c = oz * ing_dict.get(t, 0.0)
-                total_cost += c
-                breakdown.append({"Ingredient": t, "Ounces": oz, "Line Cost": c})
-                
-            bd_df = pd.DataFrame(breakdown)
-            if not bd_df.empty:
-                bd_df['Line Cost'] = bd_df['Line Cost'].apply(lambda x: f"${x:.2f}")
-                st.dataframe(bd_df, use_container_width=True, hide_index=True)
-                
-            target_price = total_cost / 0.20 if total_cost > 0 else 0.0
-            
-            builder_html = f"""<div class="quote-box" style="margin-top: 20px;">
+            total_cost = ing_dict.get(base, 0.0)
+            if sauce != "None": total_cost += sauce_oz * ing_dict.get(sauce, 0.0)
+            for ch, oz in cheese_oz.items(): total_cost += oz * ing_dict.get(ch, 0.0)
+            for t, oz in topping_oz.items(): total_cost += oz * ing_dict.get(t, 0.0)
+            st.markdown(f"""<div class="quote-box" style="margin-top: 20px;">
 <div class="quote-row"><span>Total Raw Food Cost</span> <span>${total_cost:.2f}</span></div>
-<div class="quote-row total" style="color: #238636;"><span>Suggested Menu Price (80% Margin)</span> <span>${target_price:.2f}</span></div>
-</div>"""
-            st.markdown(builder_html, unsafe_allow_html=True)
+<div class="quote-row total" style="color: #238636;"><span>Suggested Price (80% Margin)</span> <span>${total_cost / 0.20 if total_cost > 0 else 0.0:.2f}</span></div></div>""", unsafe_allow_html=True)
 
     # --- TAB 3: RECIPE MARGINS ---
     with tabs[2]:
         st.write("##")
-        col_sel, col_blank = st.columns([1, 2])
-        with col_sel:
-            selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()), key="margin_pie")
-        
+        selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()))
         df_recipe = recipes_data[recipes_data['Recipe'] == selected_pie].copy()
-        df_recipe['match_ing'] = df_recipe['Ingredient'].str.strip()
-        safe_ing_df = ingredients_data.copy()
-        safe_ing_df['match_ing'] = safe_ing_df['Ingredient'].str.strip()
-        merged_recipe = pd.merge(df_recipe, safe_ing_df[['match_ing', 'Cost']], on="match_ing", how="left")
-        merged_recipe['Cost'] = merged_recipe['Cost'].fillna(0.0)
-        merged_recipe['Line Cost'] = merged_recipe['Ounces'] * merged_recipe['Cost']
-        
-        cost = merged_recipe['Line Cost'].sum()
+        merged_recipe = pd.merge(df_recipe, ingredients_data, on="Ingredient", how="left")
+        cost = (merged_recipe['Ounces'] * merged_recipe['Cost']).sum()
         price = menu_prices[selected_pie]
-        
         c1, c2, c3 = st.columns(3)
-        c1.markdown(f"<div class='quote-box' style='text-align:center;'><div style='color:#b0b0b0; font-size: 0.9rem;'>RETAIL PRICE</div><div style='font-size: 2rem; color: #f5f5f5;'>${price:,.2f}</div></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='quote-box' style='text-align:center;'><div style='color:#b0b0b0; font-size: 0.9rem;'>FOOD COST</div><div style='font-size: 2rem; color: #da3633;'>${cost:,.2f}</div></div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='quote-box' style='text-align:center;'><div style='color:#b0b0b0; font-size: 0.9rem;'>PROFIT MARGIN</div><div style='font-size: 2rem; color: #238636;'>{((price-cost)/price)*100:.1f}%</div></div>", unsafe_allow_html=True)
-        
-        st.markdown("#### Recipe Breakdown")
-        display_df = merged_recipe[['Ingredient', 'Ounces', 'Line Cost']].copy()
-        display_df['Line Cost'] = display_df['Line Cost'].apply(lambda x: f"${x:.2f}")
-        st.dataframe(display_df, use_container_width=True, hide_index=True)
+        c1.markdown(f"<div class='quote-box' style='text-align:center;'><div>RETAIL PRICE</div><div style='font-size: 2rem;'>${price:,.2f}</div></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='quote-box' style='text-align:center;'><div>FOOD COST</div><div style='font-size: 2rem; color: #da3633;'>${cost:,.2f}</div></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='quote-box' style='text-align:center;'><div>PROFIT MARGIN</div><div style='font-size: 2rem; color: #238636;'>{((price-cost)/price)*100:.1f}%</div></div>", unsafe_allow_html=True)
 
     # --- TAB 4: THE VAULT ---
     with tabs[3]:
@@ -594,47 +359,87 @@ QuickBooks
         if not vault_df.empty:
             vault_html = '<div class="vault-grid">'
             for index, row in vault_df.iterrows():
-                name = row.get('document name') or row.get('name') or "Unnamed Doc"
-                link = row.get('link') or row.get('url') or "#"
-                href = link if str(link).startswith('http') else '#'
-                
-                svg_icon = '''<svg viewBox="0 0 24 24">
-<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-<polyline points="14 2 14 8 20 8"></polyline>
-<line x1="16" y1="13" x2="8" y2="13"></line>
-<line x1="16" y1="17" x2="8" y2="17"></line>
-<polyline points="10 9 9 9 8 9"></polyline>
-</svg>'''
-                
-                vault_html += f'''<a href="{href}" target="_blank" class="doc-card">
-{svg_icon}
-<div class="doc-title">{name}</div>
-</a>'''
-            vault_html += '</div>'
-            st.markdown(vault_html, unsafe_allow_html=True)
-        else:
-            st.info("Vault is empty or Google Sheets connection failed. Add links to your 'Vault_Index' tab.")
+                name, link = row.get('document name') or row.get('name') or "Doc", row.get('link') or row.get('url') or "#"
+                vault_html += f'<a href="{link}" target="_blank" class="doc-card"><div class="doc-title">{name}</div></a>'
+            st.markdown(vault_html + '</div>', unsafe_allow_html=True)
 
-    # --- TAB 5: WEEKLY CALENDAR ---
+    # --- TAB 5: WEEKLY CALENDAR (NATIVE NO-IFRAME FIX) ---
     with tabs[4]:
         st.write("##")
-        if OUTLOOK_CALENDAR_LINK == "YOUR_OUTLOOK_HTML_LINK_HERE" or OUTLOOK_CALENDAR_LINK == "":
-            st.warning("⚠️ Outlook Calendar link is missing. Please paste your HTML link into the `OUTLOOK_CALENDAR_LINK` variable at the top of the code.")
+        
+        if not HAS_CALENDAR_LIBS:
+            st.error("⚠️ ACTION REQUIRED: To load the live calendar directly on this page, open your terminal and run: `pip install ics requests`")
+        
+        # We auto-convert the index.html link into a calendar.ics data link
+        ics_link = OUTLOOK_CALENDAR_LINK.replace("index.html", "calendar.ics").replace("calendar.html", "calendar.ics")
+        
+        events = []
+        is_dummy_data = False
+        
+        if "00000000" in ics_link or not HAS_CALENDAR_LIBS:
+            # Load the beautiful prep data to show how it looks until real link is added
+            is_dummy_data = True
+            events = [
+                {"day": "Mon", "num": "8", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
+                {"day": "Wed", "num": "10", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
+                {"day": "Wed", "num": "10", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
+                {"day": "Thu", "num": "11", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
+            ]
         else:
-            iframe_html = f"""
-            <div style="background-color: #1a1a1a; padding: 20px; border-radius: 8px; border: 1px solid rgba(197, 160, 89, 0.3);">
-                <h3 style="margin-bottom: 20px; color: #c5a059;">Weekly Operations Schedule</h3>
-                <iframe 
-                    src="{OUTLOOK_CALENDAR_LINK}?view=weekly" 
-                    width="100%" 
-                    height="700" 
-                    frameborder="0" 
-                    scrolling="yes" 
-                    style="border-radius: 6px; background-color: #ffffff;">
-                </iframe>
-            </div>
-            """
-            st.markdown(iframe_html, unsafe_allow_html=True)
+            try:
+                # This fetches the raw calendar data in the background (Bypassing Microsoft UI Block)
+                c = Calendar(requests.get(ics_link).text)
+                for e in list(c.timeline):
+                    events.append({
+                        "day": e.begin.format("ddd"),
+                        "num": e.begin.format("D"),
+                        "title": e.name,
+                        "time": e.begin.format("h:mm A"),
+                        "type": "major-event" if "open" in e.name.lower() else "product"
+                    })
+            except Exception as e:
+                st.error("Could not read Calendar Data. Check your Outlook link.")
+
+        # NATIVE UI RENDER (No Iframes)
+        calendar_html = """
+        <style>
+        .weekly-calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 15px; margin-top: 20px;}
+        .calendar-day { background-color: #1a1a1a; border: 1px solid #333; border-radius: 6px; padding: 15px; min-height: 200px; display: flex; flex-direction: column;}
+        .calendar-day:hover { border-color: #c5a059; }
+        .day-header { font-size: 0.9rem; text-transform: uppercase; color: #b0b0b0; font-weight: 600; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center;}
+        .day-number { font-size: 1.4rem; color: #f5f5f5;}
+        .event-card { font-size: 0.8rem; padding: 10px; border-radius: 4px; font-weight: 600; margin-bottom: 8px; line-height: 1.4;}
+        .event-card .time { font-size: 0.7rem; font-weight: 400; color: rgba(255, 255, 255, 0.7); display: block; margin-top: 4px;}
+        .product { background-color: #2c3e50; border-left: 3px solid #3498db; }
+        .operational { background-color: #27ae60; border-left: 3px solid #2ecc71; }
+        .entertainment { background-color: #8e44ad; border-left: 3px solid #9b59b6; }
+        .major-event { background-color: rgba(197, 160, 89, 0.2); color: #c5a059; border-left: 3px solid #c5a059; }
+        </style>
+        
+        <div style="background-color: #121212; border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 8px; padding: 30px;">
+            <h3 style="color: #c5a059; margin-bottom: 0;">Weekly Dashboard View</h3>
+            <p style="color: #666; font-size: 0.9rem; margin-top: 5px;">Powered by Native ICS Feed Synchronization</p>
+        """
+        
+        if is_dummy_data:
+            calendar_html += '<div style="background-color: #332b00; color: #ffd700; padding: 10px; border-radius: 4px; font-size: 0.85rem; margin-top: 10px;">⚠️ Displaying placeholder schedule. Paste your real Outlook link into the python file to load live data.</div>'
+
+        calendar_html += '<div class="weekly-calendar-grid">'
+
+        days_of_week = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        for day in days_of_week:
+            day_events = [e for e in events if e["day"] == day]
+            
+            # Grab the date number from the first event of that day, or leave blank
+            day_num = day_events[0]["num"] if day_events else ""
+            
+            calendar_html += f'<div class="calendar-day"><div class="day-header">{day} <span class="day-number">{day_num}</span></div>'
+            for ev in day_events:
+                calendar_html += f'<div class="event-card {ev["type"]}">{ev["title"]}<span class="time">{ev["time"]}</span></div>'
+            calendar_html += '</div>'
+            
+        calendar_html += '</div></div>'
+        st.markdown(calendar_html, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
