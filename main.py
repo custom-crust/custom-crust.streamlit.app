@@ -23,7 +23,7 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1yqbd35J140KWT7ui8Ggqn68_OfG
 ACCESS_PIN = "CCK2026!"
 
 # *** OUTLOOK CALENDAR LINK ***
-OUTLOOK_CALENDAR_LINK = "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/c3d24d5f-cd14-4664-be6c-a0576fadb1bd/cid-2BEC859542F27B9D/calendar.ics"
+OUTLOOK_CALENDAR_LINK = "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/26efbfea-6ffe-4049-b3dc-4f9ac91ac1fc/cid-2BEC859542F27B9D/calendar.ics"
 
 # --- 2. LUXURY CSS (Matching the CCK Website) ---
 st.markdown("""
@@ -456,10 +456,22 @@ def main():
     with tabs[3]:
         st.write("##")
         selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()))
+        
+        # --- BULLETPROOF RECIPE MERGE LOGIC ---
         df_recipe = recipes_data[recipes_data['Recipe'] == selected_pie].copy()
-        merged_recipe = pd.merge(df_recipe, ingredients_data, on="Ingredient", how="left")
-        cost = (merged_recipe['Ounces'] * merged_recipe['Cost']).sum()
+        
+        # Safe string cleaning
+        df_recipe['Ingredient'] = df_recipe['Ingredient'].astype(str)
+        safe_ing_df = ingredients_data.copy()
+        safe_ing_df['Ingredient'] = safe_ing_df['Ingredient'].astype(str)
+        
+        merged_recipe = pd.merge(df_recipe, safe_ing_df, on="Ingredient", how="left")
+        merged_recipe['Cost'] = pd.to_numeric(merged_recipe['Cost']).fillna(0.0)
+        merged_recipe['Line Cost'] = merged_recipe['Ounces'] * merged_recipe['Cost']
+        
+        cost = merged_recipe['Line Cost'].sum()
         price = menu_prices[selected_pie]
+        
         c1, c2, c3 = st.columns(3)
         c1.markdown(f"<div class='quote-box' style='text-align:center;'><div>RETAIL PRICE</div><div style='font-size: 2rem;'>${price:,.2f}</div></div>", unsafe_allow_html=True)
         c2.markdown(f"<div class='quote-box' style='text-align:center;'><div>FOOD COST</div><div style='font-size: 2rem; color: #da3633;'>${cost:,.2f}</div></div>", unsafe_allow_html=True)
