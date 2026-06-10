@@ -268,7 +268,6 @@ def main():
             end_of_week = None
         
         try:
-            # Fetch the raw calendar data with a "Fake Browser" User-Agent to bypass Microsoft Blocks
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
@@ -295,7 +294,7 @@ def main():
 
         if is_dummy_data or len(events) == 0:
             if len(events) == 0 and not is_dummy_data:
-                pass # The user simply has an empty schedule this week
+                pass 
             else:
                 is_dummy_data = True
                 events = [
@@ -304,7 +303,6 @@ def main():
                     {"day": "Wed", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
                     {"day": "Thu", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
                 ]
-                # Force dummy days to look like a realistic week to avoid confusion
                 week_days = [
                     {"day_name": "Mon", "day_num": "8"}, {"day_name": "Tue", "day_num": "9"},
                     {"day_name": "Wed", "day_num": "10"}, {"day_name": "Thu", "day_num": "11"},
