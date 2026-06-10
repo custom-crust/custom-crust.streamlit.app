@@ -245,6 +245,7 @@ def main():
         ics_link = OUTLOOK_CALENDAR_LINK
         events = []
         is_dummy_data = False
+        debug_info = "No events found in the current week."
         
         st.markdown(f"<h3 style='text-align: center; color: #c5a059; margin-bottom: 0;'>Current Week</h3>", unsafe_allow_html=True)
                 
@@ -267,8 +268,12 @@ def main():
             end_of_week = None
         
         try:
-            # Fetch the raw calendar data
-            req = requests.get(ics_link)
+            # Fetch the raw calendar data with a "Fake Browser" User-Agent to bypass Microsoft Blocks
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+            req = requests.get(ics_link, headers=headers, timeout=10)
+            
             if req.status_code == 200 and start_of_week:
                 c = Calendar(req.text)
                 for e in list(c.timeline):
@@ -283,12 +288,14 @@ def main():
                         })
             else:
                 is_dummy_data = True
+                debug_info = f"Microsoft Server blocked request. HTTP Status Code: {req.status_code}"
         except Exception as e:
             is_dummy_data = True
+            debug_info = f"System Error: {str(e)}"
 
         if is_dummy_data or len(events) == 0:
             if len(events) == 0 and not is_dummy_data:
-                pass
+                pass # The user simply has an empty schedule this week
             else:
                 is_dummy_data = True
                 events = [
@@ -297,6 +304,7 @@ def main():
                     {"day": "Wed", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
                     {"day": "Thu", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
                 ]
+                # Force dummy days to look like a realistic week to avoid confusion
                 week_days = [
                     {"day_name": "Mon", "day_num": "8"}, {"day_name": "Tue", "day_num": "9"},
                     {"day_name": "Wed", "day_num": "10"}, {"day_name": "Thu", "day_num": "11"},
@@ -324,7 +332,7 @@ def main():
         """
         
         if is_dummy_data:
-            calendar_html += '<div style="background-color: #332b00; color: #ffd700; padding: 10px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 15px;">⚠️ Displaying placeholder schedule. Please verify your active .ics link is valid.</div>'
+            calendar_html += f'<div style="background-color: #332b00; color: #ffd700; padding: 10px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 15px;">⚠️ Displaying placeholder schedule. Please verify your active .ics link is valid.<br><span style="color:#aaa; font-size:0.75rem;">Diagnostic Code: {debug_info}</span></div>'
 
         calendar_html += '<div class="weekly-calendar-grid">'
 
