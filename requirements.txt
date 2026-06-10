@@ -1,5 +1,6 @@
 streamlit
-st-gsheets-connection
 pandas
-plotly
-fpdf2
+st-gsheets-connection
+fpdf
+ics
+requests
