@@ -6,14 +6,7 @@ import datetime
 from streamlit_gsheets import GSheetsConnection
 from fpdf import FPDF  
 
-# Try to load the calendar parsers
-try:
-    import requests
-    from ics import Calendar
-    import arrow
-    HAS_CALENDAR_LIBS = True
-except ImportError:
-    HAS_CALENDAR_LIBS = False
+import arrow
 
 # --- 1. CONFIGURATION & SECURITY ---
 st.set_page_config(page_title="CCK Command Center", layout="wide", page_icon="🍕")
@@ -21,9 +14,6 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1yqbd35J140KWT7ui8Ggqn68_OfG
 
 # *** YOUR MASTER PIN CODE ***
 ACCESS_PIN = "CCK2026!"
-
-# *** OUTLOOK CALENDAR LINK ***
-OUTLOOK_CALENDAR_LINK = "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/26efbfea-6ffe-4049-b3dc-4f9ac91ac1fc/cid-2BEC859542F27B9D/calendar.ics"
 
 # --- 2. LUXURY CSS (Matching the CCK Website) ---
 st.markdown("""
@@ -239,21 +229,12 @@ def main():
     with tabs[0]:
         st.write("##")
         
-        if not HAS_CALENDAR_LIBS:
-            st.error("⚠️ ACTION REQUIRED: To load the live calendar directly on this page, open your terminal and run: `pip install ics requests arrow`")
-        
-        ics_link = OUTLOOK_CALENDAR_LINK
-        events = []
-        is_dummy_data = False
-        debug_info = "No events found in the current week."
-        
         st.markdown(f"<h3 style='text-align: center; color: #c5a059; margin-bottom: 0;'>Current Week</h3>", unsafe_allow_html=True)
                 
-        # Get Current Week Dates
+        # --- HARDCODED SCHEDULE ---
         try:
             today = arrow.now('US/Eastern')
             start_of_week = today.shift(days=-today.weekday()).floor('day')
-            end_of_week = start_of_week.shift(days=7)
             
             week_days = []
             for i in range(7):
@@ -263,52 +244,20 @@ def main():
                     "day_num": day_obj.format("D")
                 })
         except:
-            week_days = [{"day_name": d, "day_num": ""} for d in ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]]
-            start_of_week = None
-            end_of_week = None
-        
-        try:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-            req = requests.get(ics_link, headers=headers, timeout=10)
-            
-            if req.status_code == 200 and start_of_week:
-                c = Calendar(req.text)
-                for e in list(c.timeline):
-                    event_time_naive = arrow.get(e.begin.naive) 
-                    
-                    if start_of_week.naive <= event_time_naive < end_of_week.naive:
-                        events.append({
-                            "day": event_time_naive.format("ddd"),
-                            "title": e.name,
-                            "time": event_time_naive.format("h:mm A"),
-                            "type": "major-event" if "open" in e.name.lower() else "product"
-                        })
-            else:
-                is_dummy_data = True
-                debug_info = f"Microsoft Server blocked request. HTTP Status Code: {req.status_code}"
-        except Exception as e:
-            is_dummy_data = True
-            debug_info = f"System Error: {str(e)}"
+            week_days = [
+                {"day_name": "Mon", "day_num": "8"}, {"day_name": "Tue", "day_num": "9"},
+                {"day_name": "Wed", "day_num": "10"}, {"day_name": "Thu", "day_num": "11"},
+                {"day_name": "Fri", "day_num": "12"}, {"day_name": "Sat", "day_num": "13"},
+                {"day_name": "Sun", "day_num": "14"},
+            ]
 
-        if is_dummy_data or len(events) == 0:
-            if len(events) == 0 and not is_dummy_data:
-                pass 
-            else:
-                is_dummy_data = True
-                events = [
-                    {"day": "Mon", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
-                    {"day": "Wed", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
-                    {"day": "Wed", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
-                    {"day": "Thu", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
-                ]
-                week_days = [
-                    {"day_name": "Mon", "day_num": "8"}, {"day_name": "Tue", "day_num": "9"},
-                    {"day_name": "Wed", "day_num": "10"}, {"day_name": "Thu", "day_num": "11"},
-                    {"day_name": "Fri", "day_num": "12"}, {"day_name": "Sat", "day_num": "13"},
-                    {"day_name": "Sun", "day_num": "14"},
-                ]
+        # Your exact events hardcoded securely
+        events = [
+            {"day": "Tue", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
+            {"day": "Wed", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
+            {"day": "Wed", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
+            {"day": "Thu", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
+        ]
 
         # NATIVE UI RENDER 
         calendar_html = """
@@ -329,9 +278,6 @@ def main():
         <div style="background-color: #121212; border: 1px solid rgba(197, 160, 89, 0.3); border-radius: 8px; padding: 30px;">
         """
         
-        if is_dummy_data:
-            calendar_html += f'<div style="background-color: #332b00; color: #ffd700; padding: 10px; border-radius: 4px; font-size: 0.85rem; margin-bottom: 15px;">⚠️ Displaying placeholder schedule. Please verify your active .ics link is valid.<br><span style="color:#aaa; font-size:0.75rem;">Diagnostic Code: {debug_info}</span></div>'
-
         calendar_html += '<div class="weekly-calendar-grid">'
 
         for wd in week_days:
@@ -456,11 +402,8 @@ def main():
     with tabs[3]:
         st.write("##")
         selected_pie = st.selectbox("Select Menu Item", list(menu_prices.keys()))
-        
-        # --- BULLETPROOF RECIPE MERGE LOGIC ---
         df_recipe = recipes_data[recipes_data['Recipe'] == selected_pie].copy()
         
-        # Safe string cleaning
         df_recipe['Ingredient'] = df_recipe['Ingredient'].astype(str)
         safe_ing_df = ingredients_data.copy()
         safe_ing_df['Ingredient'] = safe_ing_df['Ingredient'].astype(str)
