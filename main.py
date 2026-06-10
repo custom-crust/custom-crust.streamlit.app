@@ -22,7 +22,7 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1yqbd35J140KWT7ui8Ggqn68_OfG
 ACCESS_PIN = "CCK2026!"
 
 # *** OUTLOOK CALENDAR LINK ***
-OUTLOOK_CALENDAR_LINK = "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/26efbfea-6ffe-4049-b3dc-4f9ac91ac1fc/cid-2BEC859542F27B9D/index.html"
+OUTLOOK_CALENDAR_LINK = "https://outlook.live.com/owa/calendar/00000000-0000-0000-0000-000000000000/26efbfea-6ffe-4049-b3dc-4f9ac91ac1fc/cid-2BEC859542F27B9D/calendar.ics"
 
 # --- 2. LUXURY CSS (Matching the CCK Website) ---
 st.markdown("""
@@ -370,25 +370,15 @@ def main():
         if not HAS_CALENDAR_LIBS:
             st.error("⚠️ ACTION REQUIRED: To load the live calendar directly on this page, open your terminal and run: `pip install ics requests`")
         
-        # We auto-convert the index.html link into a calendar.ics data link
-        ics_link = OUTLOOK_CALENDAR_LINK.replace("index.html", "calendar.ics").replace("calendar.html", "calendar.ics")
-        
+        ics_link = OUTLOOK_CALENDAR_LINK
         events = []
         is_dummy_data = False
         
-        if "00000000" in ics_link or not HAS_CALENDAR_LIBS:
-            # Load the beautiful prep data to show how it looks until real link is added
-            is_dummy_data = True
-            events = [
-                {"day": "Mon", "num": "8", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
-                {"day": "Wed", "num": "10", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
-                {"day": "Wed", "num": "10", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
-                {"day": "Thu", "num": "11", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
-            ]
-        else:
-            try:
-                # This fetches the raw calendar data in the background (Bypassing Microsoft UI Block)
-                c = Calendar(requests.get(ics_link).text)
+        try:
+            # Fetch the raw calendar data
+            req = requests.get(ics_link)
+            if req.status_code == 200:
+                c = Calendar(req.text)
                 for e in list(c.timeline):
                     events.append({
                         "day": e.begin.format("ddd"),
@@ -397,8 +387,19 @@ def main():
                         "time": e.begin.format("h:mm A"),
                         "type": "major-event" if "open" in e.name.lower() else "product"
                     })
-            except Exception as e:
-                st.error("Could not read Calendar Data. Check your Outlook link.")
+            else:
+                is_dummy_data = True
+        except Exception as e:
+            is_dummy_data = True
+
+        if is_dummy_data or len(events) == 0:
+            is_dummy_data = True
+            events = [
+                {"day": "Mon", "num": "8", "title": "US Foods Delivery", "time": "9:00 AM", "type": "product"},
+                {"day": "Wed", "num": "10", "title": "Adjust Gas Regulator", "time": "11:00 AM", "type": "operational"},
+                {"day": "Wed", "num": "10", "title": "Karaoke Session", "time": "7:00 PM", "type": "entertainment"},
+                {"day": "Thu", "num": "11", "title": "SOFT LUNCH OPENING", "time": "11:00 AM - 4:00 PM", "type": "major-event"},
+            ]
 
         # NATIVE UI RENDER (No Iframes)
         calendar_html = """
@@ -422,7 +423,7 @@ def main():
         """
         
         if is_dummy_data:
-            calendar_html += '<div style="background-color: #332b00; color: #ffd700; padding: 10px; border-radius: 4px; font-size: 0.85rem; margin-top: 10px;">⚠️ Displaying placeholder schedule. Paste your real Outlook link into the python file to load live data.</div>'
+            calendar_html += '<div style="background-color: #332b00; color: #ffd700; padding: 10px; border-radius: 4px; font-size: 0.85rem; margin-top: 10px;">⚠️ Displaying placeholder schedule. Please verify your active .ics link is valid.</div>'
 
         calendar_html += '<div class="weekly-calendar-grid">'
 
@@ -430,7 +431,6 @@ def main():
         for day in days_of_week:
             day_events = [e for e in events if e["day"] == day]
             
-            # Grab the date number from the first event of that day, or leave blank
             day_num = day_events[0]["num"] if day_events else ""
             
             calendar_html += f'<div class="calendar-day"><div class="day-header">{day} <span class="day-number">{day_num}</span></div>'
