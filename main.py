@@ -154,7 +154,7 @@ def load_gsheets():
         return pd.DataFrame()
 
 # --- 5. PDF GENERATOR ---
-def generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier):
+def generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier, adults, kids):
     pdf = FPDF()
     pdf.add_page()
     gold, black, gray = (197, 160, 89), (30, 30, 30), (100, 100, 100)
@@ -173,6 +173,7 @@ def generate_pdf_quote(client_name, event_date, event_address, event_desc, print
     pdf.set_font("Arial", 'B', 12); pdf.set_text_color(*black); pdf.cell(0, 8, "EVENT DETAILS", ln=True)
     pdf.set_font("Arial", '', 11); pdf.set_text_color(*gray)
     pdf.cell(0, 6, f"Client: {client_name}", ln=True); pdf.cell(0, 6, f"Date: {event_date}", ln=True)
+    pdf.cell(0, 6, f"Headcount: {adults} Adults, {kids} Kids", ln=True)
     pdf.cell(0, 6, f"Location: {event_address}", ln=True); pdf.cell(0, 6, f"Event Notes: {event_desc}", ln=True); pdf.ln(10)
     
     pdf.set_font("Arial", 'B', 14); pdf.set_text_color(*black); pdf.cell(0, 10, "ORDER SUMMARY", ln=True)
@@ -374,7 +375,7 @@ def main():
             st.markdown(quote_html, unsafe_allow_html=True)
             
             if len(printable_items) > 0 and client_name and event_date and event_address:
-                pdf_bytes = generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier)
+                pdf_bytes = generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier, adults, kids)
                 st.download_button(label="📄 Download Official PDF", data=pdf_bytes, file_name=f"CCK_Estimate_{client_name}.pdf", mime="application/pdf", use_container_width=True)
 
     # --- TAB 3: PIZZA BUILDER ---
