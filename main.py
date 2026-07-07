@@ -127,22 +127,23 @@ ingredients_data = pd.DataFrame([
 ing_dict = {row['Ingredient'].strip(): float(row['Cost']) for index, row in ingredients_data.iterrows()}
 
 recipes_data = pd.DataFrame([
-    ["The Plain Jane 14\"", "14\" Dough Ball", 1], ["The Plain Jane 14\"", "House Pizza Sauce", 8], ["The Plain Jane 14\"", "Grande Mozzarella", 13],
-    ["The Premium Pepperoni 14\"", "14\" Dough Ball", 1], ["The Premium Pepperoni 14\"", "House Pizza Sauce", 8], ["The Premium Pepperoni 14\"", "Grande Mozzarella", 12], ["The Premium Pepperoni 14\"", "Premium Sliced Pepperoni", 4.5],
-    ["The Carnivore 14\"", "14\" Dough Ball", 1], ["The Carnivore 14\"", "House Pizza Sauce", 7], ["The Carnivore 14\"", "Grande Mozzarella", 10], ["The Carnivore 14\"", "Premium Sliced Pepperoni", 3], ["The Carnivore 14\"", "Fontanini Sausage", 4], ["The Carnivore 14\"", "Candied Bacon", 3], ["The Carnivore 14\"", "Mike's Hot Honey", 1],
-    ["The Bianco Veggie 14\"", "14\" Dough Ball", 1], ["The Bianco Veggie 14\"", "Sliced Garlic", 1], ["The Bianco Veggie 14\"", "Grande Mozzarella", 8], ["The Bianco Veggie 14\"", "Ricotta Cheese", 5], ["The Bianco Veggie 14\"", "Green Peppers", 4], ["The Bianco Veggie 14\"", "Black Olives", 3],
-    ["The Buffalo Soldier 14\"", "14\" Dough Ball", 1], ["The Buffalo Soldier 14\"", "Buffalo Sauce", 5], ["The Buffalo Soldier 14\"", "Grande Mozzarella", 9], ["The Buffalo Soldier 14\"", "Diced Chicken", 7], ["The Buffalo Soldier 14\"", "Blue Cheese Crumbles", 2],
-    ["Custom 14\" (Standard Toppings)", "14\" Dough Ball", 1], ["Custom 14\" (Standard Toppings)", "House Pizza Sauce", 8], ["Custom 14\" (Standard Toppings)", "Grande Mozzarella", 12], ["Custom 14\" (Standard Toppings)", "Green Peppers", 3], ["Custom 14\" (Standard Toppings)", "Onion", 3],
-    ["Custom 14\" (Premium Toppings)", "14\" Dough Ball", 1], ["Custom 14\" (Premium Toppings)", "House Pizza Sauce", 8], ["Custom 14\" (Premium Toppings)", "Grande Mozzarella", 12], ["Custom 14\" (Premium Toppings)", "Premium Sliced Pepperoni", 3], ["Custom 14\" (Premium Toppings)", "Ricotta Cheese", 3],
-    ["Kids Cheese 12\"", "12\" Dough Ball", 1], ["Kids Cheese 12\"", "House Pizza Sauce", 4.5], ["Kids Cheese 12\"", "Grande Mozzarella", 7],
-    ["Kids Pepperoni 12\"", "12\" Dough Ball", 1], ["Kids Pepperoni 12\"", "House Pizza Sauce", 4.5], ["Kids Pepperoni 12\"", "Grande Mozzarella", 7], ["Kids Pepperoni 12\"", "Premium Sliced Pepperoni", 1.5],
-    ["Kids 2-Topping 12\"", "12\" Dough Ball", 1], ["Kids 2-Topping 12\"", "House Pizza Sauce", 4.5], ["Kids 2-Topping 12\"", "Grande Mozzarella", 7], ["Kids 2-Topping 12\"", "Green Peppers", 1], ["Kids 2-Topping 12\"", "Onion", 1]
+    ["The Plain Jane", "14\" Dough Ball", 1], ["The Plain Jane", "House Pizza Sauce", 8], ["The Plain Jane", "Grande Mozzarella", 13],
+    ["The Premium Pepperoni", "14\" Dough Ball", 1], ["The Premium Pepperoni", "House Pizza Sauce", 8], ["The Premium Pepperoni", "Grande Mozzarella", 12], ["The Premium Pepperoni", "Premium Sliced Pepperoni", 4.5],
+    ["The Carnivore", "14\" Dough Ball", 1], ["The Carnivore", "House Pizza Sauce", 7], ["The Carnivore", "Grande Mozzarella", 10], ["The Carnivore", "Premium Sliced Pepperoni", 3], ["The Carnivore", "Fontanini Sausage", 4], ["The Carnivore", "Candied Bacon", 3], ["The Carnivore", "Mike's Hot Honey", 1],
+    ["The Velvet Sting", "14\" Dough Ball", 1], ["The Velvet Sting", "House Pizza Sauce", 8], ["The Velvet Sting", "Grande Mozzarella", 10], ["The Velvet Sting", "Premium Sliced Pepperoni", 3], ["The Velvet Sting", "Ricotta Cheese", 3], ["The Velvet Sting", "Mike's Hot Honey", 1],
+    ["The Bianco Veggie", "14\" Dough Ball", 1], ["The Bianco Veggie", "Sliced Garlic", 1], ["The Bianco Veggie", "Grande Mozzarella", 8], ["The Bianco Veggie", "Ricotta Cheese", 5], ["The Bianco Veggie", "Green Peppers", 4], ["The Bianco Veggie", "Black Olives", 3],
+    ["The Buffalo Soldier", "14\" Dough Ball", 1], ["The Buffalo Soldier", "Buffalo Sauce", 5], ["The Buffalo Soldier", "Grande Mozzarella", 9], ["The Buffalo Soldier", "Diced Chicken", 7], ["The Buffalo Soldier", "Blue Cheese Crumbles", 2],
+    ["Custom (Standard Toppings)", "14\" Dough Ball", 1], ["Custom (Standard Toppings)", "House Pizza Sauce", 8], ["Custom (Standard Toppings)", "Grande Mozzarella", 12], ["Custom (Standard Toppings)", "Green Peppers", 3], ["Custom (Standard Toppings)", "Onion", 3],
+    ["Custom (Premium Toppings)", "14\" Dough Ball", 1], ["Custom (Premium Toppings)", "House Pizza Sauce", 8], ["Custom (Premium Toppings)", "Grande Mozzarella", 12], ["Custom (Premium Toppings)", "Premium Sliced Pepperoni", 3], ["Custom (Premium Toppings)", "Ricotta Cheese", 3],
+    ["Kids Cheese", "12\" Dough Ball", 1], ["Kids Cheese", "House Pizza Sauce", 4.5], ["Kids Cheese", "Grande Mozzarella", 7],
+    ["Kids Pepperoni", "12\" Dough Ball", 1], ["Kids Pepperoni", "House Pizza Sauce", 4.5], ["Kids Pepperoni", "Grande Mozzarella", 7], ["Kids Pepperoni", "Premium Sliced Pepperoni", 1.5],
+    ["Kids 2-Topping", "12\" Dough Ball", 1], ["Kids 2-Topping", "House Pizza Sauce", 4.5], ["Kids 2-Topping", "Grande Mozzarella", 7], ["Kids 2-Topping", "Green Peppers", 1], ["Kids 2-Topping", "Onion", 1]
 ], columns=["Recipe", "Ingredient", "Ounces"])
 
 menu_prices = {
-    "The Plain Jane 14\"": 17.00, "The Premium Pepperoni 14\"": 23.00, "The Carnivore 14\"": 26.00, 
-    "The Bianco Veggie 14\"": 24.00, "The Buffalo Soldier 14\"": 24.00, "Custom 14\" (Standard Toppings)": 24.00,
-    "Custom 14\" (Premium Toppings)": 28.00, "Kids Cheese 12\"": 10.00, "Kids Pepperoni 12\"": 12.00, "Kids 2-Topping 12\"": 14.00
+    "The Plain Jane": 17.00, "The Premium Pepperoni": 23.00, "The Carnivore": 26.00, "The Velvet Sting": 24.00, 
+    "The Bianco Veggie": 24.00, "The Buffalo Soldier": 24.00, "Custom (Standard Toppings)": 24.00,
+    "Custom (Premium Toppings)": 28.00, "Kids Cheese": 10.00, "Kids Pepperoni": 12.00, "Kids 2-Topping": 14.00
 }
 
 # --- 4. DATA HELPERS ---
@@ -323,7 +324,7 @@ def main():
             kids = c_k.number_input("Est. Kids", min_value=0, value=10, step=5)
             event_fee = c_f.number_input("Setup Fee ($)", min_value=0.0, value=150.0, step=25.0)
             adult_pies, kid_pies = math.ceil((adults * 3) / 6), math.ceil((kids * 2) / 8) if kids > 0 else 0
-            st.info(f"💡 **Prep Guide:** You will need to prep ~**{adult_pies} adult pies** (14\") and **{kid_pies} kids pies** (12\").")
+            st.info(f"💡 **Prep Guide:** You will need to prep ~**{adult_pies} adult pies** and **{kid_pies} kids pies**.")
             
             st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>3. Food Packages & Menu Selection</h3>", unsafe_allow_html=True)
             c_food1, c_food2 = st.columns(2)
