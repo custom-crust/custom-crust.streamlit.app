@@ -131,6 +131,7 @@ recipes_data = pd.DataFrame([
     ["The Premium Pepperoni", "14\" Dough Ball", 1], ["The Premium Pepperoni", "House Pizza Sauce", 8], ["The Premium Pepperoni", "Grande Mozzarella", 12], ["The Premium Pepperoni", "Premium Sliced Pepperoni", 4.5],
     ["The Carnivore", "14\" Dough Ball", 1], ["The Carnivore", "House Pizza Sauce", 7], ["The Carnivore", "Grande Mozzarella", 10], ["The Carnivore", "Premium Sliced Pepperoni", 3], ["The Carnivore", "Fontanini Sausage", 4], ["The Carnivore", "Candied Bacon", 3], ["The Carnivore", "Mike's Hot Honey", 1],
     ["The Velvet Sting", "14\" Dough Ball", 1], ["The Velvet Sting", "House Pizza Sauce", 8], ["The Velvet Sting", "Grande Mozzarella", 10], ["The Velvet Sting", "Premium Sliced Pepperoni", 3], ["The Velvet Sting", "Ricotta Cheese", 3], ["The Velvet Sting", "Mike's Hot Honey", 1],
+    ["The Springfield Classic", "14\" Dough Ball", 1], ["The Springfield Classic", "House Pizza Sauce", 8], ["The Springfield Classic", "Grande Mozzarella", 8], ["The Springfield Classic", "Fresh Mozzarella", 4], ["The Springfield Classic", "Fresh Tomatoes", 3],
     ["The Bianco Veggie", "14\" Dough Ball", 1], ["The Bianco Veggie", "Sliced Garlic", 1], ["The Bianco Veggie", "Grande Mozzarella", 8], ["The Bianco Veggie", "Ricotta Cheese", 5], ["The Bianco Veggie", "Green Peppers", 4], ["The Bianco Veggie", "Black Olives", 3],
     ["The Buffalo Soldier", "14\" Dough Ball", 1], ["The Buffalo Soldier", "Buffalo Sauce", 5], ["The Buffalo Soldier", "Grande Mozzarella", 9], ["The Buffalo Soldier", "Diced Chicken", 7], ["The Buffalo Soldier", "Blue Cheese Crumbles", 2],
     ["Custom (Standard Toppings)", "14\" Dough Ball", 1], ["Custom (Standard Toppings)", "House Pizza Sauce", 8], ["Custom (Standard Toppings)", "Grande Mozzarella", 12], ["Custom (Standard Toppings)", "Green Peppers", 3], ["Custom (Standard Toppings)", "Onion", 3],
@@ -142,7 +143,7 @@ recipes_data = pd.DataFrame([
 
 menu_prices = {
     "The Plain Jane": 17.00, "The Premium Pepperoni": 23.00, "The Carnivore": 26.00, "The Velvet Sting": 24.00, 
-    "The Bianco Veggie": 24.00, "The Buffalo Soldier": 24.00, "Custom (Standard Toppings)": 24.00,
+    "The Springfield Classic": 22.00, "The Bianco Veggie": 24.00, "The Buffalo Soldier": 24.00, "Custom (Standard Toppings)": 24.00,
     "Custom (Premium Toppings)": 28.00, "Kids Cheese": 10.00, "Kids Pepperoni": 12.00, "Kids 2-Topping": 14.00
 }
 
