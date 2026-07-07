@@ -154,7 +154,7 @@ def load_gsheets():
         return pd.DataFrame()
 
 # --- 5. PDF GENERATOR ---
-def generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier, adults, kids):
+def generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, menu_ext_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier, adults, kids, selected_pizzas):
     pdf = FPDF()
     pdf.add_page()
     gold, black, gray = (197, 160, 89), (30, 30, 30), (100, 100, 100)
@@ -187,6 +187,14 @@ def generate_pdf_quote(client_name, event_date, event_address, event_desc, print
         pdf.set_font("Arial", '', 10); pdf.set_text_color(*gray)
         if "Classic" in adult_tier: pdf.cell(0, 6, "- Classic Package Includes: The Plain Jane, The Premium Pepperoni, & The Bianco Veggie.", ln=True)
         else: pdf.cell(0, 6, "- Premium Package Includes: Full Signature Pizza Menu.", ln=True)
+        
+        if len(selected_pizzas) > 0:
+            pdf.set_font("Arial", 'B', 10); pdf.set_text_color(*black)
+            pdf.cell(0, 6, "Selected Event Pizzas:", ln=True)
+            pdf.set_font("Arial", '', 10); pdf.set_text_color(*gray)
+            pizzas_str = ", ".join(selected_pizzas)
+            pdf.multi_cell(0, 6, f"- {pizzas_str}")
+            
         pdf.cell(0, 6, "- Exclusions: Calzones are exclusively for retail service and are not included in catering.", ln=True); pdf.ln(8)
     
     pdf.set_font("Arial", 'B', 14); pdf.set_text_color(*black); pdf.cell(0, 10, "FINANCIALS", ln=True); pdf.set_font("Arial", '', 12)
@@ -194,6 +202,8 @@ def generate_pdf_quote(client_name, event_date, event_address, event_desc, print
     if discount_amount > 0:
         pdf.set_text_color(200, 50, 50); pdf.cell(140, 8, f"Discount ({discount_pct}%)", 0, 0); pdf.cell(50, 8, f"-${discount_amount:,.2f}", 0, 1, 'R'); pdf.set_text_color(*black)
     pdf.cell(140, 8, "Setup / Travel Fee", 0, 0); pdf.cell(50, 8, f"${event_fee:,.2f}", 0, 1, 'R')
+    if menu_ext_fee > 0:
+        pdf.cell(140, 8, "Menu Extension Fee", 0, 0); pdf.cell(50, 8, f"${menu_ext_fee:,.2f}", 0, 1, 'R')
     if tax_amount > 0: pdf.cell(140, 8, "MA Meals Tax (7.0%)", 0, 0); pdf.cell(50, 8, f"${tax_amount:,.2f}", 0, 1, 'R')
     if cc_fee_amount > 0: pdf.cell(140, 8, "Credit Card Fee (2.29%)", 0, 0); pdf.cell(50, 8, f"${cc_fee_amount:,.2f}", 0, 1, 'R')
     pdf.line(10, pdf.get_y() + 2, 200, pdf.get_y() + 2); pdf.ln(5)
@@ -315,10 +325,11 @@ def main():
             adult_pies, kid_pies = math.ceil((adults * 3) / 6), math.ceil((kids * 2) / 8) if kids > 0 else 0
             st.info(f"💡 **Prep Guide:** You will need to prep ~**{adult_pies} adult pies** (14\") and **{kid_pies} kids pies** (12\").")
             
-            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>3. Food Packages (Per Person)</h3>", unsafe_allow_html=True)
+            st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>3. Food Packages & Menu Selection</h3>", unsafe_allow_html=True)
             c_food1, c_food2 = st.columns(2)
             adult_tier = c_food1.selectbox("Adult Package", ["Classic ($17/head)", "Premium ($22/head)"])
             kid_tier = c_food2.selectbox("Kids Package", ["Standard ($10/head)"])
+            selected_pizzas = st.multiselect("Select Event Pizzas (Will appear on contract)", list(menu_prices.keys()))
             
             st.markdown("<h3 style='margin-bottom: 10px; margin-top: 20px;'>4. Beverages & Fees</h3>", unsafe_allow_html=True)
             c_b1, c_b2 = st.columns(2)
@@ -328,6 +339,7 @@ def main():
             apply_tax = c_t.checkbox("Add MA Meals Tax", value=True)
             apply_cc = c_c.checkbox("Add CC Fee", value=False)
             discount_pct = c_d.number_input("Discount (%)", value=0.0, step=5.0)
+            menu_ext_fee = st.number_input("Menu Extension Fee ($)", min_value=0.0, value=0.0, step=25.0)
 
         with c_out:
             printable_items, order_lines = [], ""
@@ -354,7 +366,7 @@ def main():
 
             gross_subtotal = food_revenue + beverage_revenue
             discount_amount = gross_subtotal * (discount_pct / 100.0)
-            taxable_amount = (gross_subtotal - discount_amount) + event_fee
+            taxable_amount = (gross_subtotal - discount_amount) + event_fee + menu_ext_fee
             tax_amount = (taxable_amount * 0.07) if apply_tax else 0.0
             cc_fee_amount = ((taxable_amount + tax_amount) * 0.0229) if apply_cc else 0.0
             final_quote = taxable_amount + tax_amount + cc_fee_amount
@@ -367,6 +379,7 @@ def main():
 <div class="quote-row"><span>Food & Beverage Subtotal</span> <span>${gross_subtotal:,.2f}</span></div>"""
             if discount_amount > 0: quote_html += f'\n<div class="quote-row" style="color: #da3633;"><span>Discount</span> <span>-${discount_amount:,.2f}</span></div>'
             quote_html += f'\n<div class="quote-row"><span>Setup / Travel Fee</span> <span>${event_fee:,.2f}</span></div>'
+            if menu_ext_fee > 0: quote_html += f'\n<div class="quote-row"><span>Menu Extension Fee</span> <span>${menu_ext_fee:,.2f}</span></div>'
             if apply_tax: quote_html += f'\n<div class="quote-row"><span>MA Meals Tax (7.0%)</span> <span>${tax_amount:,.2f}</span></div>'
             if apply_cc: quote_html += f'\n<div class="quote-row"><span>Credit Card Fee (2.29%)</span> <span>${cc_fee_amount:,.2f}</span></div>'
             quote_html += f"""\n<div class="quote-row total"><span>Total Client Quote</span> <span>${final_quote:,.2f}</span></div>
@@ -375,7 +388,7 @@ def main():
             st.markdown(quote_html, unsafe_allow_html=True)
             
             if len(printable_items) > 0 and client_name and event_date and event_address:
-                pdf_bytes = generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier, adults, kids)
+                pdf_bytes = generate_pdf_quote(client_name, event_date, event_address, event_desc, printable_items, event_fee, menu_ext_fee, gross_subtotal, discount_amount, discount_pct, tax_amount, cc_fee_amount, final_quote, adult_pies, kid_pies, adult_tier, adults, kids, selected_pizzas)
                 st.download_button(label="📄 Download Official PDF", data=pdf_bytes, file_name=f"CCK_Estimate_{client_name}.pdf", mime="application/pdf", use_container_width=True)
 
     # --- TAB 3: PIZZA BUILDER ---
