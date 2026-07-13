@@ -3,14 +3,12 @@ import pandas as pd
 import math
 import os
 import datetime
-from streamlit_gsheets import GSheetsConnection
 from fpdf import FPDF  
 
 import arrow
 
 # --- 1. CONFIGURATION & SECURITY ---
 st.set_page_config(page_title="CCK Command Center", layout="wide", page_icon="🍕")
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1yqbd35J140KWT7ui8Ggqn68_OfGXb1wofViJRcSgZBU/edit"
 
 # *** YOUR MASTER PIN CODE ***
 ACCESS_PIN = "CCK2026!"
@@ -147,13 +145,16 @@ menu_prices = {
     "Custom (Premium Toppings)": 28.00, "Kids Cheese": 10.00, "Kids Pepperoni": 12.00, "Kids 2-Topping": 14.00
 }
 
-# --- 4. DATA HELPERS ---
+# --- 4. DATA HELPERS (FIXED TO BYPASS SEGFAULT) ---
 @st.cache_data(ttl=600)
 def load_gsheets():
     try:
-        conn = st.connection("gsheets", type=GSheetsConnection)
-        # Pulls the data and instantly drops any completely blank rows/columns to save memory
-        df = conn.read(spreadsheet=SHEET_URL, worksheet="Vault_Index")
+        # Convert your Google Sheet URL into a direct CSV export link
+        sheet_id = "1yqbd35J140KWT7ui8Ggqn68_OfGXb1wofViJRcSgZBU"
+        csv_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet=Vault_Index"
+        
+        # Read the sheet natively with Pandas, bypassing the crashing packages
+        df = pd.read_csv(csv_url)
         df = df.dropna(how='all').dropna(axis=1, how='all')
         return df
     except: 
