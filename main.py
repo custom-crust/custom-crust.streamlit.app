@@ -148,10 +148,14 @@ menu_prices = {
 }
 
 # --- 4. DATA HELPERS ---
+@st.cache_data(ttl=600)
 def load_gsheets():
     try:
         conn = st.connection("gsheets", type=GSheetsConnection)
-        return conn.read(spreadsheet=SHEET_URL, worksheet="Vault_Index", ttl=600)
+        # Pulls the data and instantly drops any completely blank rows/columns to save memory
+        df = conn.read(spreadsheet=SHEET_URL, worksheet="Vault_Index")
+        df = df.dropna(how='all').dropna(axis=1, how='all')
+        return df
     except: 
         return pd.DataFrame()
 
